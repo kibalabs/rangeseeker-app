@@ -16,16 +16,7 @@ A fully autonomous, natural-language-controlled liquidity agent that:
 - Uses The Graph AMP for real-time volatility intelligence
 - Funds via Coinbase OnchainKit Swap widget (fiat → position in one click)
 
-**Why This Wins Everything**
-- Most usable live app (works today with $10 on Base mainnet, real fees earned in demo)
-- Sweeps every sponsor prize:
-  - Coinbase CDP → agent wallet + OnchainKit Swap widget
-  - Pyth → on-chain price update in every single rebalance tx
-  - The Graph → AMP dataset for volatility + UI badges
-  - Hardhat → full contract suite with factory, tests, deploy scripts
-- Feels like magic: user types "farm fees aggressively but gtfo to USDC if ETH < $3000" → watches live as agent actually does it
-
-Hardcoded for MVP: WETH/USDC 0.05% fee tier on Base (most liquid pool = best demo).
+Hardcoded for MVP: WETH/USDC 0.05% fee tier on Base (most liquid pool => best demo).
 
 ## Complete User Flow (Step-by-Step)
 

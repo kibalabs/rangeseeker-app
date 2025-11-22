@@ -3,14 +3,13 @@ import React, { useState } from 'react';
 
 import { useNavigator } from '@kibalabs/core-react';
 import { Alignment, Box, Button, Direction, PaddingSize, SingleLineInput, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
-import { useWeb3Account, useOnSwitchToWeb3ChainIdClicked, useWeb3ChainId } from '@kibalabs/web3-react';
+import { useOnSwitchToWeb3ChainIdClicked, useWeb3Account, useWeb3ChainId } from '@kibalabs/web3-react';
 import styled from 'styled-components';
 
 import { useAuth } from '../../AuthContext';
 import { Agent, AssetBalance, Wallet } from '../../client/resources';
 import { useGlobals } from '../../GlobalsContext';
 import { useStrategyCreation } from '../../StrategyCreationContext';
-import { executeDepositToAgent } from '../../util/depositHelper';
 
 const ICONS = ['🤖', '🚀', '💎', '🦁', '🦉', '⚡️'];
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -60,7 +59,7 @@ export function DeployPage(): React.ReactElement {
   const [userWethBalance, setUserWethBalance] = useState<string | null>(null);
   const [userEthBalance, setUserEthBalance] = useState<string | null>(null);
   const [depositError, setDepositError] = useState<string | null>(null);
-  const [depositSteps, setDepositSteps] = useState<Array<{label: string; status: 'pending' | 'loading' | 'success' | 'error'}>>([]);
+  const [depositSteps, setDepositSteps] = useState<Array<{ label: string; status: 'pending' | 'loading' | 'success' | 'error' }>>([]);
   const [agentWallet, setAgentWallet] = useState<Wallet | null>(null);
   const [isRebalancing, setIsRebalancing] = useState<boolean>(false);
 
@@ -90,6 +89,7 @@ export function DeployPage(): React.ReactElement {
           if (account.signer) {
             const ethBalanceWei = await account.signer.provider?.getBalance(account.address);
             if (ethBalanceWei) {
+              // eslint-disable-next-line import/no-extraneous-dependencies
               const ethers = await import('ethers');
               setUserEthBalance(ethers.formatEther(ethBalanceWei));
             }
@@ -167,7 +167,7 @@ export function DeployPage(): React.ReactElement {
     }
 
     // Build steps list
-    const steps: Array<{label: string; status: 'pending' | 'loading' | 'success' | 'error'}> = [];
+    const steps: Array<{ label: string; status: 'pending' | 'loading' | 'success' | 'error' }> = [];
     if (ethAmount && Number(ethAmount) > 0) {
       steps.push({ label: `Send ${ethAmount} ETH`, status: 'pending' });
     }
@@ -183,74 +183,75 @@ export function DeployPage(): React.ReactElement {
     setIsDepositing(true);
     setDepositError(null);
     try {
+      // eslint-disable-next-line import/no-extraneous-dependencies
       const { ethers } = await import('ethers');
-      const agentWallet = await rangeSeekerClient.getAgentWallet(createdAgent.agentId, authToken);
+      const fetchedAgentWallet = await rangeSeekerClient.getAgentWallet(createdAgent.agentId, authToken);
       let currentStepIndex = 0;
 
       // ETH transfer
       if (ethAmount && Number(ethAmount) > 0) {
-        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'loading'} : s));
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'loading' } : s)));
         try {
           const ethAmountWei = ethers.parseEther(ethAmount);
           const ethTx = await account.signer.sendTransaction({
-            to: agentWallet.walletAddress,
+            to: fetchedAgentWallet.walletAddress,
             value: ethAmountWei,
           });
           await ethTx.wait();
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'success'} : s));
-          currentStepIndex++;
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'success' } : s)));
+          currentStepIndex += 1;
         } catch (error) {
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'error'} : s));
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'error' } : s)));
           throw error;
         }
       }
 
       // USDC transfer
       if (usdcAmount && Number(usdcAmount) > 0) {
-        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'loading'} : s));
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'loading' } : s)));
         try {
           const ERC20_ABI = ['function transfer(address to, uint256 amount) public returns (bool)'];
           const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, account.signer);
           const usdcAmountWei = BigInt((Number(usdcAmount) * 10 ** 6).toFixed(0));
-          const usdcTx = await usdcContract.transfer(agentWallet.walletAddress, usdcAmountWei);
+          const usdcTx = await usdcContract.transfer(fetchedAgentWallet.walletAddress, usdcAmountWei);
           await usdcTx.wait();
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'success'} : s));
-          currentStepIndex++;
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'success' } : s)));
+          currentStepIndex += 1;
         } catch (error) {
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'error'} : s));
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'error' } : s)));
           throw error;
         }
       }
 
       // WETH transfer
       if (wethAmount && Number(wethAmount) > 0) {
-        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'loading'} : s));
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'loading' } : s)));
         try {
           const ERC20_ABI = ['function transfer(address to, uint256 amount) public returns (bool)'];
           const wethContract = new ethers.Contract(WETH_ADDRESS, ERC20_ABI, account.signer);
           const wethAmountWei = ethers.parseEther(wethAmount);
-          const wethTx = await wethContract.transfer(agentWallet.walletAddress, wethAmountWei);
+          const wethTx = await wethContract.transfer(fetchedAgentWallet.walletAddress, wethAmountWei);
           await wethTx.wait();
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'success'} : s));
-          currentStepIndex++;
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'success' } : s)));
+          currentStepIndex += 1;
         } catch (error) {
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'error'} : s));
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'error' } : s)));
           throw error;
         }
       }
 
       // Notify backend and rebalance
-      setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'loading'} : s));
+      setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'loading' } : s)));
       try {
         await rangeSeekerClient.depositMadeToAgent(createdAgent.agentId, authToken);
-        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'success'} : s));
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'success' } : s)));
 
         // Navigate to dashboard after success
         setTimeout(() => {
           navigator.navigateTo('/dashboard');
         }, 1500);
       } catch (error) {
-        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? {...s, status: 'error'} : s));
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'error' } : s)));
         throw error;
       }
     } catch (error) {
@@ -276,7 +277,12 @@ export function DeployPage(): React.ReactElement {
       <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
         <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='600px' isFullWidth={true}>
           <Text variant='header1'>✅ Agent Deployed!</Text>
-          <Text>Now deposit funds to activate {createdAgent.emoji} {createdAgent.name}</Text>
+          <Text>
+            Now deposit funds to activate
+            {createdAgent.emoji}
+            {' '}
+            {createdAgent.name}
+          </Text>
           <Spacing variant={PaddingSize.Wide} />
           <Box variant='card'>
             <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
@@ -292,92 +298,116 @@ export function DeployPage(): React.ReactElement {
                 </Stack>
               ) : (
                 <React.Fragment>
-              {/* ETH for gas */}
-              <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-                <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center}>
-                  <Text variant='bold'>ETH (for gas) *</Text>
-                  <Spacing />
-                  {userEthBalance && <Text variant='note'>Balance: {Number(userEthBalance).toFixed(4)} ETH</Text>}
-                </Stack>
-                <SingleLineInput
-                  value={ethAmount}
-                  onValueChanged={setEthAmount}
-                  placeholderText={`Minimum: ${REQUIRED_ETH_GAS}`}
-                />
-                <Text variant='note'>Agent needs ETH to pay for transaction fees</Text>
-              </Stack>
-
-              {/* USDC */}
-              <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-                <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center}>
-                  <Text variant='bold'>USDC</Text>
-                  <Spacing />
-                  {userUsdcBalance && <Text variant='note'>Balance: {Number(userUsdcBalance).toFixed(2)} USDC</Text>}
-                </Stack>
-                <SingleLineInput
-                  value={usdcAmount}
-                  onValueChanged={setUsdcAmount}
-                  placeholderText='0.00'
-                />
-              </Stack>
-
-              {/* WETH */}
-              <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-                <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center}>
-                  <Text variant='bold'>WETH</Text>
-                  <Spacing />
-                  {userWethBalance && <Text variant='note'>Balance: {Number(userWethBalance).toFixed(6)} WETH</Text>}
-                </Stack>
-                <SingleLineInput
-                  value={wethAmount}
-                  onValueChanged={setWethAmount}
-                  placeholderText='0.00'
-                />
-              </Stack>
-
-              <Spacing variant={PaddingSize.Default} />
-              {depositError && (
-                <Text variant='error'>{depositError}</Text>
-              )}
-              {depositSteps.length > 0 && (
-                <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-                  <Text variant='bold'>Transaction Progress:</Text>
-                  {depositSteps.map((step, index) => (
-                    <Stack key={index} direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
-                      <Text>
-                        {step.status === 'pending' && '⏳'}
-                        {step.status === 'loading' && '⏺'}
-                        {step.status === 'success' && '✅'}
-                        {step.status === 'error' && '❌'}
-                      </Text>
-                      <Text variant={step.status === 'error' ? 'error' : 'default'}>{step.label}</Text>
+                  {/* ETH for gas */}
+                  <Stack direction={Direction.Vertical} shouldAddGutters={true}>
+                    <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center}>
+                      <Text variant='bold'>ETH (for gas) *</Text>
+                      <Spacing />
+                      {userEthBalance && (
+                        <Text variant='note'>
+                          Balance:
+                          {Number(userEthBalance).toFixed(4)}
+                          {' '}
+                          ETH
+                        </Text>
+                      )}
                     </Stack>
-                  ))}
-                </Stack>
-              )}
-              {agentWallet && agentWallet.assetBalances.some((b: AssetBalance) =>
-                (b.asset.address.toLowerCase() === USDC_ADDRESS.toLowerCase() ||
-                 b.asset.address.toLowerCase() === WETH_ADDRESS.toLowerCase()) &&
-                Number(b.balance) > 0
-              ) && (
-                <React.Fragment>
-                  <Text variant='note' alignment={TextAlignment.Center}>Your agent already has funds. You can rebalance without depositing more.</Text>
+                    <SingleLineInput
+                      value={ethAmount}
+                      onValueChanged={setEthAmount}
+                      placeholderText={`Minimum: ${REQUIRED_ETH_GAS}`}
+                    />
+                    <Text variant='note'>Agent needs ETH to pay for transaction fees</Text>
+                  </Stack>
+
+                  {/* USDC */}
+                  <Stack direction={Direction.Vertical} shouldAddGutters={true}>
+                    <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center}>
+                      <Text variant='bold'>USDC</Text>
+                      <Spacing />
+                      {userUsdcBalance && (
+                        <Text variant='note'>
+                          Balance:
+                          {Number(userUsdcBalance).toFixed(2)}
+                          {' '}
+                          USDC
+                        </Text>
+                      )}
+                    </Stack>
+                    <SingleLineInput
+                      value={usdcAmount}
+                      onValueChanged={setUsdcAmount}
+                      placeholderText='0.00'
+                    />
+                  </Stack>
+
+                  {/* WETH */}
+                  <Stack direction={Direction.Vertical} shouldAddGutters={true}>
+                    <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center}>
+                      <Text variant='bold'>WETH</Text>
+                      <Spacing />
+                      {userWethBalance && (
+                        <Text variant='note'>
+                          Balance:
+                          {Number(userWethBalance).toFixed(6)}
+                          {' '}
+                          WETH
+                        </Text>
+                      )}
+                    </Stack>
+                    <SingleLineInput
+                      value={wethAmount}
+                      onValueChanged={setWethAmount}
+                      placeholderText='0.00'
+                    />
+                  </Stack>
+
+                  <Spacing variant={PaddingSize.Default} />
+                  {depositError && (
+                    <Text variant='error'>{depositError}</Text>
+                  )}
+                  {depositSteps.length > 0 && (
+                    <Stack direction={Direction.Vertical} shouldAddGutters={true}>
+                      <Text variant='bold'>Transaction Progress:</Text>
+                      {depositSteps.map((step) => (
+                        <Stack key={step.label} direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
+                          <Text>
+                            {step.status === 'pending' && '⏳'}
+                            {step.status === 'loading' && '⏺'}
+                            {step.status === 'success' && '✅'}
+                            {step.status === 'error' && '❌'}
+                          </Text>
+                          <Text variant={step.status === 'error' ? 'error' : 'default'}>{step.label}</Text>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  )}
+                  {agentWallet && agentWallet.assetBalances.some((b: AssetBalance) => (b.asset.address.toLowerCase() === USDC_ADDRESS.toLowerCase()
+                    || b.asset.address.toLowerCase() === WETH_ADDRESS.toLowerCase())
+                    && Number(b.balance) > 0) && (
+                    <React.Fragment>
+                      <Text variant='note' alignment={TextAlignment.Center}>Your agent already has funds. You can rebalance without depositing more.</Text>
+                      <Button
+                        variant='secondary'
+                        text={isRebalancing ? 'Rebalancing...' : 'Rebalance Liquidity'}
+                        onClicked={onRebalanceClicked}
+                        isEnabled={!isRebalancing && !isDepositing}
+                      />
+                      <Text variant='note' alignment={TextAlignment.Center}>— or deposit more —</Text>
+                    </React.Fragment>
+                  )}
                   <Button
-                    variant='secondary'
-                    text={isRebalancing ? 'Rebalancing...' : 'Rebalance Liquidity'}
-                    onClicked={onRebalanceClicked}
-                    isEnabled={!isRebalancing && !isDepositing}
+                    variant='primary'
+                    text={isDepositing ? 'Depositing...' : 'Deposit & Activate'}
+                    onClicked={onDepositClicked}
+                    isEnabled={!isDepositing && !isRebalancing && Number(ethAmount) >= Number(REQUIRED_ETH_GAS) && (Number(usdcAmount) > 0 || Number(wethAmount) > 0)}
                   />
-                  <Text variant='note' alignment={TextAlignment.Center}>— or deposit more —</Text>
-                </React.Fragment>
-              )}
-              <Button
-                variant='primary'
-                text={isDepositing ? 'Depositing...' : 'Deposit & Activate'}
-                onClicked={onDepositClicked}
-                isEnabled={!isDepositing && !isRebalancing && Number(ethAmount) >= Number(REQUIRED_ETH_GAS) && (Number(usdcAmount) > 0 || Number(wethAmount) > 0)}
-              />
-              <Text variant='note'>* At least {REQUIRED_ETH_GAS} ETH and some USDC or WETH required</Text>
+                  <Text variant='note'>
+                    * At least
+                    {REQUIRED_ETH_GAS}
+                    {' '}
+                    ETH and some USDC or WETH required
+                  </Text>
                 </React.Fragment>
               )}
             </Stack>

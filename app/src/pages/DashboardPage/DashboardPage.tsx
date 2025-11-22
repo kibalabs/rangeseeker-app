@@ -2,7 +2,7 @@ import React from 'react';
 
 import { useInitialization, useStringRouteParam } from '@kibalabs/core-react';
 import { Alignment, Box, Button, Direction, EqualGrid, IconButton, InputType, KibaIcon, PaddingSize, SingleLineInput, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
-import { useWeb3, useOnSwitchToWeb3ChainIdClicked, useWeb3ChainId } from '@kibalabs/web3-react';
+import { useOnSwitchToWeb3ChainIdClicked, useWeb3, useWeb3ChainId } from '@kibalabs/web3-react';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { ethers } from 'ethers';
 import styled from 'styled-components';
@@ -30,14 +30,6 @@ const ActivityItem = styled.div`
   }
 `;
 
-const FlexRow = styled.div`
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-`;
-
 const IconBox = styled.div`
   width: 40px;
   height: 40px;
@@ -57,9 +49,6 @@ const StatusBadge = styled.div`
   border: 1px solid rgba(46, 228, 227, 0.5);
 `;
 
-const ColoredText = styled.span<{ color: string }>`
-  color: ${(props) => props.color};
-`;
 
 const ClickableIcon = styled.div`
   cursor: pointer;
@@ -73,6 +62,7 @@ const ClickableIcon = styled.div`
     opacity: 1;
   }
 `;
+
 
 export function DashboardPage(): React.ReactElement {
   const agentId = useStringRouteParam('agentId');
@@ -216,43 +206,43 @@ export function DashboardPage(): React.ReactElement {
 
       // USDC transfer
       if (usdcDepositAmount && Number(usdcDepositAmount) > 0) {
-        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'loading' } : s));
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'loading' } : s)));
         try {
           const ERC20_ABI = ['function transfer(address to, uint256 amount) public returns (bool)'];
           const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
           const usdcAmountWei = BigInt((Number(usdcDepositAmount) * 10 ** 6).toFixed(0));
           const usdcTx = await usdcContract.transfer(agentWallet.walletAddress, usdcAmountWei);
           await usdcTx.wait();
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'success' } : s));
-          currentStepIndex++;
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'success' } : s)));
+          currentStepIndex += 1;
         } catch (error) {
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'error' } : s));
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'error' } : s)));
           throw error;
         }
       }
 
       // WETH transfer
       if (wethDepositAmount && Number(wethDepositAmount) > 0) {
-        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'loading' } : s));
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'loading' } : s)));
         try {
           const ERC20_ABI = ['function transfer(address to, uint256 amount) public returns (bool)'];
           const wethContract = new ethers.Contract(WETH_ADDRESS, ERC20_ABI, signer);
           const wethAmountWei = ethers.parseEther(wethDepositAmount);
           const wethTx = await wethContract.transfer(agentWallet.walletAddress, wethAmountWei);
           await wethTx.wait();
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'success' } : s));
-          currentStepIndex++;
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'success' } : s)));
+          currentStepIndex += 1;
         } catch (error) {
-          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'error' } : s));
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'error' } : s)));
           throw error;
         }
       }
 
       // Notify backend and rebalance
-      setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'loading' } : s));
+      setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'loading' } : s)));
       try {
         await rangeSeekerClient.depositMadeToAgent(agentId, authToken);
-        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'success' } : s));
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'success' } : s)));
 
         setUsdcDepositAmount('');
         setWethDepositAmount('');
@@ -270,7 +260,7 @@ export function DashboardPage(): React.ReactElement {
           setIsDepositing(false);
         }, 2000);
       } catch (error) {
-        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'error' } : s));
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'error' } : s)));
         throw error;
       }
     } catch (error) {
@@ -315,7 +305,7 @@ export function DashboardPage(): React.ReactElement {
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
         <Text variant='header1'>Dashboard</Text>
         <Spacing variant={PaddingSize.Wide} />
-        <FlexRow>
+        <Stack direction={Direction.Horizontal} shouldAddGutters={true} isFullWidth={true}>
           <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center}>
             <IconBox>{agent.emoji}</IconBox>
             <Stack direction={Direction.Vertical}>
@@ -337,9 +327,9 @@ export function DashboardPage(): React.ReactElement {
             </Stack>
           </Stack>
           <StatusBadge><Text variant='bold-branded'>Active</Text></StatusBadge>
-        </FlexRow>
+        </Stack>
         <Spacing variant={PaddingSize.Default} />
-        <EqualGrid childSizeResponsive={{ base: 12, medium: 6 }} shouldAddGutters={true} isFullHeight={false}>
+        <EqualGrid childSizeResponsive={{ base: 12, medium: 6 }} shouldAddGutters={false} isFullHeight={false}>
           <Box variant='card' isFullWidth={true}>
             <Stack direction={Direction.Vertical} shouldAddGutters={false}>
               <Text variant='note'>Total Value</Text>
@@ -356,7 +346,13 @@ export function DashboardPage(): React.ReactElement {
                     }
                     return (
                       <Text key={balance.asset.assetId} variant='note'>
-                        {amount.toFixed(balance.asset.symbol === 'USDC' ? 2 : 6)} {balance.asset.symbol} (${value.toFixed(2)})
+                        {amount.toFixed(balance.asset.symbol === 'USDC' ? 2 : 6)}
+                        {' '}
+                        {balance.asset.symbol}
+                        {' '}
+                        ($
+                        {value.toFixed(2)}
+                        )
                       </Text>
                     );
                   })}
@@ -377,8 +373,30 @@ export function DashboardPage(): React.ReactElement {
               )}
             </Stack>
           </Box>
-        </EqualGrid >
-        <Spacing variant={PaddingSize.Wide} />
+        </EqualGrid>
+        {agentWallet && totalValue > 0 && chainId === BASE_CHAIN_ID && (
+          <React.Fragment>
+            <Box variant='card'>
+              <Stack direction={Direction.Vertical} padding={PaddingSize.Default} shouldAddGutters={true} childAlignment={Alignment.Center}>
+                <Text variant='note' alignment={TextAlignment.Center}>
+                  Your agent has $
+                  {totalValue.toFixed(2)}
+                  . You can rebalance liquidity to optimize returns.
+                </Text>
+                <Button
+                  variant='secondary'
+                  text={isRebalancing ? 'Rebalancing...' : 'Rebalance Liquidity'}
+                  onClicked={onRebalanceClicked}
+                  isEnabled={!isRebalancing && !isDepositing}
+                />
+                {depositError && (
+                  <Text variant='error'>{depositError}</Text>
+                )}
+              </Stack>
+            </Box>
+            <Spacing variant={PaddingSize.Wide} />
+          </React.Fragment>
+        )}
         <Box variant='card'>
           <Stack direction={Direction.Vertical} padding={PaddingSize.Default} shouldAddGutters={true} maxWidth='400px'>
             {chainId !== BASE_CHAIN_ID ? (
@@ -389,6 +407,7 @@ export function DashboardPage(): React.ReactElement {
               </Stack>
             ) : (
               <React.Fragment>
+                <Text variant='header4'>Deposit More Funds</Text>
                 <Stack direction={Direction.Vertical} shouldAddGutters={true}>
                   <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
                     <Text variant='bold'>USDC</Text>
@@ -402,10 +421,10 @@ export function DashboardPage(): React.ReactElement {
                     onValueChanged={setUsdcDepositAmount}
                     placeholderText='0.00'
                   />
-                  <FlexRow>
+                  <Stack direction={Direction.Horizontal} shouldAddGutters={true}>
                     <Text variant='note'>{`$${(Number(usdcDepositAmount || 0) * usdcPrice).toFixed(2)}`}</Text>
                     <Text variant='note'>{usdcBalance ? `Balance: ${Number(usdcBalance).toFixed(4)}` : 'Loading...'}</Text>
-                  </FlexRow>
+                  </Stack>
                 </Stack>
                 <Stack direction={Direction.Vertical} shouldAddGutters={true}>
                   <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
@@ -420,13 +439,10 @@ export function DashboardPage(): React.ReactElement {
                     onValueChanged={setWethDepositAmount}
                     placeholderText='0.00'
                   />
-                  <FlexRow>
-                    <Text variant='note'>
-                      $
-                      {(Number(wethDepositAmount || 0) * wethPrice).toFixed(2)}
-                    </Text>
+                  <Stack direction={Direction.Horizontal} shouldAddGutters={true}>
+                    <Text variant='note'>{`$${(Number(wethDepositAmount || 0) * wethPrice).toFixed(2)}`}</Text>
                     <Text variant='note'>{wethBalance ? `Balance: ${Number(wethBalance).toFixed(4)}` : 'Loading...'}</Text>
-                  </FlexRow>
+                  </Stack>
                 </Stack>
                 {depositSummary && (
                   <React.Fragment>
@@ -441,8 +457,8 @@ export function DashboardPage(): React.ReactElement {
                 {depositSteps.length > 0 && (
                   <Stack direction={Direction.Vertical} shouldAddGutters={true}>
                     <Text variant='bold'>Transaction Progress:</Text>
-                    {depositSteps.map((step, index) => (
-                      <Stack key={index} direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
+                    {depositSteps.map((step) => (
+                      <Stack key={step.label} direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
                         <Text>
                           {step.status === 'pending' && '◼'}
                           {step.status === 'loading' && '👀'}
@@ -453,18 +469,6 @@ export function DashboardPage(): React.ReactElement {
                       </Stack>
                     ))}
                   </Stack>
-                )}
-                {agentWallet && totalValue > 0 && (
-                  <React.Fragment>
-                    <Text variant='note' alignment={TextAlignment.Center}>Your agent has ${totalValue.toFixed(2)}. You can rebalance without depositing more.</Text>
-                    <Button
-                      variant='secondary'
-                      text={isRebalancing ? 'Rebalancing...' : 'Rebalance Liquidity'}
-                      onClicked={onRebalanceClicked}
-                      isEnabled={!isRebalancing && !isDepositing}
-                    />
-                    <Text variant='note' alignment={TextAlignment.Center}>— or deposit more —</Text>
-                  </React.Fragment>
                 )}
                 <Button
                   variant='primary'
@@ -491,7 +495,7 @@ export function DashboardPage(): React.ReactElement {
             <Text variant='note'>Just now</Text>
           </ActivityItem>
         </Stack>
-      </Stack >
-    </Stack >
+      </Stack>
+    </Stack>
   );
 }
