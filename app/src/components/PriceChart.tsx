@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 
 import { Box } from '@kibalabs/ui-react';
-import { AreaSeries, ColorType, createChart, IChartApi, LineSeries, Time } from 'lightweight-charts';
+import { AreaSeries, ColorType, createChart, IChartApi, IPriceLine, LineSeries, Time } from 'lightweight-charts';
+
+import { StrategyDefinition } from '../client/resources';
 
 export interface PriceDataPoint {
   timestamp: number;
@@ -10,6 +12,8 @@ export interface PriceDataPoint {
 
 interface PriceChartProps {
   priceData?: PriceDataPoint[];
+  strategyDefinition?: StrategyDefinition | null;
+  currentPrice?: number;
 }
 
 export function PriceChart(props: PriceChartProps) {
@@ -48,12 +52,14 @@ export function PriceChart(props: PriceChartProps) {
       lineWidth: 2,
     });
 
+    const priceLines: IPriceLine[] = [];
+
     // Sort by timestamp and remove duplicates
     const sortedData = [...props.priceData].sort((a, b) => a.timestamp - b.timestamp);
     const uniqueData: { time: Time; value: number }[] = [];
     let lastTimestamp: number | null = null;
 
-    for (const point of sortedData) {
+    sortedData.forEach((point) => {
       if (lastTimestamp === null || point.timestamp > lastTimestamp) {
         uniqueData.push({
           time: point.timestamp as Time,
@@ -61,7 +67,7 @@ export function PriceChart(props: PriceChartProps) {
         });
         lastTimestamp = point.timestamp;
       }
-    }
+    });
 
     lineSeries.setData(uniqueData);
 
@@ -73,13 +79,112 @@ export function PriceChart(props: PriceChartProps) {
     });
     areaSeries.setData(uniqueData);
 
-    // Set visible range to show last 24 hours by default
+    // Set visible range to show last 24 hours by default and prevent scrolling beyond data range
     if (uniqueData.length > 0) {
-      const lastTimestamp = uniqueData[uniqueData.length - 1].time as number;
-      const oneDayAgo = lastTimestamp - (24 * 60 * 60);
+      const firstTimestamp = uniqueData[0].time as number;
+      const lastDataTimestamp = uniqueData[uniqueData.length - 1].time as number;
+      const oneDayAgo = lastDataTimestamp - (24 * 60 * 60);
+
       chart.timeScale().setVisibleRange({
         from: oneDayAgo as Time,
-        to: lastTimestamp as Time,
+        to: lastDataTimestamp as Time,
+      });
+
+      // Prevent scrolling beyond data bounds
+      chart.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
+        if (timeRange !== null) {
+          const fromTime = timeRange.from as number;
+          const toTime = timeRange.to as number;
+          const rangeWidth = toTime - fromTime;
+
+          // If user scrolled too far left (before first data point)
+          if (fromTime < firstTimestamp) {
+            chart.timeScale().setVisibleRange({
+              from: firstTimestamp as Time,
+              to: (firstTimestamp + rangeWidth) as Time,
+            });
+          } else if (toTime > lastDataTimestamp) {
+            // If user scrolled too far right (beyond last data point)
+            chart.timeScale().setVisibleRange({
+              from: (lastDataTimestamp - rangeWidth) as Time,
+              to: lastDataTimestamp as Time,
+            });
+          }
+        }
+      });
+    }
+
+    // Add strategy overlays
+    if (props.strategyDefinition && props.currentPrice) {
+      const rangeRule = props.strategyDefinition.rules.find((rule) => rule.type === 'RANGE_WIDTH');
+      const priceThresholdRules = props.strategyDefinition.rules.filter((rule) => rule.type === 'PRICE_THRESHOLD');
+
+      // Draw range bands
+      if (rangeRule && 'baseRangePercent' in rangeRule.parameters) {
+        const rangePercent = rangeRule.parameters.baseRangePercent / 100;
+        const upperBound = props.currentPrice * (1 + rangePercent);
+        const lowerBound = props.currentPrice * (1 - rangePercent);
+
+        priceLines.push(
+          lineSeries.createPriceLine({
+            price: upperBound,
+            color: '#FFA500',
+            lineWidth: 2,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: `+${rangeRule.parameters.baseRangePercent}%`,
+          }),
+          lineSeries.createPriceLine({
+            price: lowerBound,
+            color: '#FFA500',
+            lineWidth: 2,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: `-${rangeRule.parameters.baseRangePercent}%`,
+          }),
+        );
+
+        // Draw widened range if dynamic widening exists
+        if (rangeRule.parameters.dynamicWidening) {
+          const widenedPercent = rangeRule.parameters.dynamicWidening.widenToPercent / 100;
+          const widenedUpper = props.currentPrice * (1 + widenedPercent);
+          const widenedLower = props.currentPrice * (1 - widenedPercent);
+
+          priceLines.push(
+            lineSeries.createPriceLine({
+              price: widenedUpper,
+              color: '#FF6B00',
+              lineWidth: 1,
+              lineStyle: 3,
+              axisLabelVisible: true,
+              title: `+${rangeRule.parameters.dynamicWidening.widenToPercent}%`,
+            }),
+            lineSeries.createPriceLine({
+              price: widenedLower,
+              color: '#FF6B00',
+              lineWidth: 1,
+              lineStyle: 3,
+              axisLabelVisible: true,
+              title: `-${rangeRule.parameters.dynamicWidening.widenToPercent}%`,
+            }),
+          );
+        }
+      }
+
+      // Draw price thresholds
+      priceThresholdRules.forEach((rule) => {
+        if ('priceUsd' in rule.parameters) {
+          priceLines.push(
+            lineSeries.createPriceLine({
+              price: rule.parameters.priceUsd,
+              color: '#FF4444',
+              lineWidth: 2,
+              lineStyle: 0,
+              axisLabelVisible: true,
+              title: `$${rule.parameters.priceUsd.toLocaleString()}`,
+            }),
+          );
+        }
       });
     }
 
@@ -99,7 +204,7 @@ export function PriceChart(props: PriceChartProps) {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [props.priceData]);
+  }, [props.priceData, props.strategyDefinition, props.currentPrice]);
 
   return (
     <Box ref={chartContainerRef} width='100%' height='100%' />

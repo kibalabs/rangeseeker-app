@@ -39,19 +39,37 @@ class UniswapDataClient:
     async def get_pool_swaps(self, poolAddress: str, hoursBack: int = 24) -> list[SwapEvent]:
         cutoffTime = datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(hours=hoursBack)
         timestampCutoff = cutoffTime.strftime('%Y-%m-%d %H:%M:%S')
+        # Group by 15-minute intervals to reduce data size while maintaining good granularity
         sql = f"""
+        WITH binned_swaps AS (
+            SELECT
+                FLOOR(EXTRACT(EPOCH FROM timestamp) / (15*60)) as time_bucket,
+                timestamp,
+                event."sqrtPriceX96" as sqrtPriceX96,
+                block_num,
+                tx_hash,
+                log_index,
+                event
+            FROM "{self.ampDatasetName}".event__swap
+            WHERE
+                pool_address = {poolAddress}
+                AND timestamp > TIMESTAMP '{timestampCutoff}'
+        ),
+        ranked_swaps AS (
+            SELECT
+                *,
+                ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY block_num DESC) as rn
+            FROM binned_swaps
+        )
         SELECT
-            block_num,
             timestamp,
+            block_num,
             tx_hash,
             log_index,
             event
-        FROM "{self.ampDatasetName}".event__swap
-        WHERE
-            pool_address = {poolAddress}
-            AND timestamp > TIMESTAMP '{timestampCutoff}'
+        FROM ranked_swaps
+        WHERE rn = 1
         ORDER BY timestamp DESC
-        LIMIT 10000
         """
         swaps = []
         async for row in self.ampClient.execute_sql(sql):

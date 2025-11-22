@@ -6,9 +6,9 @@ from core.store.database import Database
 from rangeseeker.amp_client import AmpClient
 from rangeseeker.app_manager import AppManager
 from rangeseeker.gemini_llm import GeminiLLM
-from rangeseeker.uniswap_data_client import UniswapDataClient
 from rangeseeker.strategy_manager import StrategyManager
 from rangeseeker.strategy_parser import StrategyParser
+from rangeseeker.uniswap_data_client import UniswapDataClient
 from rangeseeker.user_manager import UserManager
 
 DB_HOST = os.environ['DB_HOST']

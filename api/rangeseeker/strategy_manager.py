@@ -3,12 +3,12 @@ import dataclasses
 from core.store.database import Database
 from core.util import json_util
 
-from rangeseeker.uniswap_data_client import UniswapDataClient
 from rangeseeker.model import Strategy
 from rangeseeker.store import schema
 from rangeseeker.store.entity_repository import UUIDFieldFilter
 from rangeseeker.strategy_parser import StrategyDefinition
 from rangeseeker.strategy_parser import StrategyParser
+from rangeseeker.uniswap_data_client import UniswapDataClient
 
 POOL_ADDRESS = '0xd0b53D9277642d899DF5C87A3966A349A798F224'
 
@@ -48,7 +48,7 @@ class StrategyManager:
         )
 
     async def list_user_strategies(self, userId: str) -> list[Strategy]:
-        return await schema.StrategiesRepository.get_all(
+        return await schema.StrategiesRepository.list_many(
             database=self.database,
             fieldFilters=[UUIDFieldFilter(fieldName=schema.StrategiesTable.c.userId.key, eq=userId)],
         )

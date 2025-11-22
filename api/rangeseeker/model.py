@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import datetime
 
-from pydantic import BaseModel
-
 from core.util.typing_util import JsonObject
+from pydantic import BaseModel
 
 
 class User(BaseModel):
