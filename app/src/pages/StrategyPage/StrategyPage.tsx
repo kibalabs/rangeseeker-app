@@ -6,6 +6,7 @@ import styled from 'styled-components';
 
 import { useAuth } from '../../AuthContext';
 import { StrategyDefinition, StrategyRule } from '../../client/resources';
+import { LoadingShimmer } from '../../components/LoadingShimmer';
 import { PriceChart } from '../../components/PriceChart';
 import { useGlobals } from '../../GlobalsContext';
 import { useStrategyCreation } from '../../StrategyCreationContext';
@@ -16,20 +17,42 @@ const WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 const DropdownBox = styled.div`
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
   cursor: pointer;
-  min-width: 120px;
-  padding: 12px;
+  min-width: 140px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.3);
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(110, 211, 233, 0.4);
+    box-shadow: 0 0 20px rgba(110, 211, 233, 0.1);
   }
+`;
+
+const PriceInfoBox = styled.div`
+  background: linear-gradient(135deg, rgba(110, 211, 233, 0.1) 0%, rgba(196, 242, 200, 0.1) 100%);
+  border: 1px solid rgba(110, 211, 233, 0.2);
+  border-radius: 12px;
+  padding: 16px 24px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+`;
+
+const EarningsBox = styled.div`
+  background: linear-gradient(135deg, rgba(110, 211, 233, 0.15), rgba(196, 242, 200, 0.15));
+  border: 1px solid rgba(110, 211, 233, 0.3);
+  border-radius: 16px;
+  padding: ${PaddingSize.Wide};
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 `;
 
 export function StrategyPage(): React.ReactElement {
@@ -55,7 +78,7 @@ export function StrategyPage(): React.ReactElement {
   }, [strategyDefinition]);
 
   const { data: poolData, isLoading: isLoadingPool, error: poolDataError } = usePoolDataQuery(CHAIN_ID, WETH_ADDRESS, USDC_ADDRESS);
-  const { data: historicalData } = usePoolHistoricalDataQuery(CHAIN_ID, WETH_ADDRESS, USDC_ADDRESS, 24 * 7);
+  const { data: historicalData, isLoading: isLoadingHistorical } = usePoolHistoricalDataQuery(CHAIN_ID, WETH_ADDRESS, USDC_ADDRESS, 24 * 7);
 
   // Calculate earnings estimate based on strategy range
   const earningsEstimate = React.useMemo(() => {
@@ -247,133 +270,166 @@ export function StrategyPage(): React.ReactElement {
 
   return (
     <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
-      <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
+      <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1200px' isFullWidth={true}>
         <Text variant='header1'>Create Your Strategy</Text>
-        <Text>Define how your agent should manage your liquidity.</Text>
-        <Spacing variant={PaddingSize.Wide} />
-        <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Start}>
-          <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-            <Text variant='note'>Chain</Text>
-            <DropdownBox>
-              <Text>Base</Text>
-              <KibaIcon iconId='ion-chevron-down' />
-            </DropdownBox>
-          </Stack>
-          <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-            <Text variant='note'>Token 0</Text>
-            <DropdownBox>
-              <Text>WETH</Text>
-              <KibaIcon iconId='ion-chevron-down' />
-            </DropdownBox>
-          </Stack>
-          <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-            <Text variant='note'>Token 1</Text>
-            <DropdownBox>
-              <Text>USDC</Text>
-              <KibaIcon iconId='ion-chevron-down' />
-            </DropdownBox>
-          </Stack>
-        </Stack>
-        {isLoadingPool ? (
-          <Text variant='note'>Loading pool data...</Text>
-        ) : poolDataError ? (
-          <Text variant='error'>Failed to load pool data</Text>
-        ) : poolData ? (
-          <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center}>
-            <Text variant='note'>{`Current Price: $${poolData.currentPrice.toFixed(4)}`}</Text>
-            <Text variant='note'>{`24h Volatility: ${(poolData.volatility24h * 100).toFixed(1)}%`}</Text>
-            <Text variant='note'>{`7d Volatility: ${(poolData.volatility7d * 100).toFixed(1)}%`}</Text>
-          </Stack>
-        ) : null}
-        <Spacing variant={PaddingSize.Wide} />
-        <Stack direction={Direction.Horizontal} isFullWidth={true} shouldAddGutters={true} childAlignment={Alignment.Start} contentAlignment={Alignment.Start}>
-          <Stack.Item growthFactor={1} shrinkFactor={1}>
-            <Box variant='card'>
-              <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
-                <Text variant='header3'>Strategy</Text>
-                {poolData ? (
-                  <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-                    <Button
-                      variant={selectedPreset === 'conservative' ? 'primary' : 'tertiary'}
-                      text='Conservative'
-                      onClicked={() => onPresetClicked('conservative')}
-                    />
-                    <Button
-                      variant={selectedPreset === 'balanced' ? 'primary' : 'tertiary'}
-                      text='Balanced'
-                      onClicked={() => onPresetClicked('balanced')}
-                    />
-                    <Button
-                      variant={selectedPreset === 'aggressive' ? 'primary' : 'tertiary'}
-                      text='Aggressive'
-                      onClicked={() => onPresetClicked('aggressive')}
-                    />
-                    <Button
-                      variant={selectedPreset === 'custom' ? 'primary' : 'tertiary'}
-                      text='Custom'
-                      onClicked={() => setSelectedPreset('custom')}
-                    />
-                  </Stack>
-                ) : null}
-                <Text>Describe your strategy in plain English:</Text>
-                <MultiLineInput
-                  value={strategyInput}
-                  onValueChanged={onInputChange}
-                  placeholderText='e.g. I want tight range fee farming but widen if volatility spikes, and exit entirely to USDC if ETH ever drops below $3000'
-                  minRowCount={5}
-                />
-                <Button variant='primary' text={isGenerating ? 'Generating...' : 'Generate Strategy'} onClicked={onGenerateClicked} isEnabled={!isGenerating} />
-                {error && <Text variant='error'>{error}</Text>}
+        <Text variant='note'>Define how your agent should manage your liquidity.</Text>
+        <Spacing variant={PaddingSize.Wide2} />
+
+        <Box variant='card' isFullWidth={true}>
+          <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Wide}>
+            <Text variant='header4'>Choose your tokens</Text>
+            <Stack direction={Direction.Horizontal} shouldAddGutters={true} defaultGutter={PaddingSize.Wide} childAlignment={Alignment.End} contentAlignment={Alignment.Start}>
+              <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Narrow}>
+                <Text variant='note'>Chain</Text>
+                <DropdownBox>
+                  <Text variant='bold'>Base</Text>
+                  <KibaIcon iconId='ion-chevron-down' />
+                </DropdownBox>
               </Stack>
-            </Box>
-          </Stack.Item>
-          <Stack.Item growthFactor={1} shrinkFactor={1}>
-            <Box variant='card'>
-              <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
-                <Text variant='header3'>Price Chart &amp; Strategy Preview</Text>
-                <Box width='100%' height='300px'>
-                  <PriceChart
-                    priceData={historicalData?.pricePoints}
-                    strategyDefinition={strategyDefinition}
-                    currentPrice={poolData?.currentPrice}
-                  />
+              <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Narrow}>
+                <Text variant='note'>Token 0</Text>
+                <DropdownBox>
+                  <Text variant='bold'>WETH</Text>
+                  <KibaIcon iconId='ion-chevron-down' />
+                </DropdownBox>
+              </Stack>
+              <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Narrow}>
+                <Text variant='note'>Token 1</Text>
+                <DropdownBox>
+                  <Text variant='bold'>USDC</Text>
+                  <KibaIcon iconId='ion-chevron-down' />
+                </DropdownBox>
+              </Stack>
+            </Stack>
+
+            {isLoadingPool ? (
+              <LoadingShimmer height='80px' />
+            ) : poolDataError ? (
+              <Text variant='error'>Failed to load pool data</Text>
+            ) : poolData ? (
+              <PriceInfoBox>
+                <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Narrow} childAlignment={Alignment.Center}>
+                  <Text variant='large-bold'>{`Current Price: $${poolData.currentPrice.toFixed(2)}`}</Text>
+                  <Stack direction={Direction.Horizontal} shouldAddGutters={true} defaultGutter={PaddingSize.Wide} childAlignment={Alignment.Center}>
+                    <Text variant='note'>{`24h Vol: ${(poolData.volatility24h * 100).toFixed(1)}%`}</Text>
+                    <Text variant='note'>•</Text>
+                    <Text variant='note'>{`7d Vol: ${(poolData.volatility7d * 100).toFixed(1)}%`}</Text>
+                  </Stack>
+                </Stack>
+              </PriceInfoBox>
+            ) : null}
+          </Stack>
+        </Box>
+
+        {!isLoadingPool && (
+          <React.Fragment>
+            <Spacing variant={PaddingSize.Wide2} />
+            <Stack direction={Direction.Horizontal} isFullWidth={true} shouldAddGutters={true} defaultGutter={PaddingSize.Wide2} childAlignment={Alignment.Start} contentAlignment={Alignment.Start}>
+              <Stack.Item growthFactor={1} shrinkFactor={1}>
+                <Box variant='card'>
+                  <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Wide} padding={PaddingSize.Wide}>
+                    <Text variant='header4'>Strategy</Text>
+                    {poolData ? (
+                      <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Default}>
+                        <Button
+                          variant={selectedPreset === 'conservative' ? 'secondary' : 'tertiary'}
+                          text='Conservative'
+                          onClicked={() => onPresetClicked('conservative')}
+                          isFullWidth={true}
+                        />
+                        <Button
+                          variant={selectedPreset === 'balanced' ? 'secondary' : 'tertiary'}
+                          text='Balanced'
+                          onClicked={() => onPresetClicked('balanced')}
+                          isFullWidth={true}
+                        />
+                        <Button
+                          variant={selectedPreset === 'aggressive' ? 'secondary' : 'tertiary'}
+                          text='Aggressive'
+                          onClicked={() => onPresetClicked('aggressive')}
+                          isFullWidth={true}
+                        />
+                        <Button
+                          variant={selectedPreset === 'custom' ? 'secondary' : 'tertiary'}
+                          text='Custom'
+                          onClicked={() => setSelectedPreset('custom')}
+                          isFullWidth={true}
+                        />
+                      </Stack>
+                    ) : null}
+                    <Spacing variant={PaddingSize.Default} />
+                    <Text variant='bold'>Describe your strategy in plain English:</Text>
+                    <MultiLineInput
+                      value={strategyInput}
+                      onValueChanged={onInputChange}
+                      placeholderText='e.g. Tight ±2% range for maximum fees. Widen to ±8% if volatility spikes above 15%. Exit to USDC if ETH drops below $2500.'
+                      minRowCount={6}
+                    />
+                    <Button variant='primary' text={isGenerating ? 'Generating...' : 'Generate Strategy'} onClicked={onGenerateClicked} isEnabled={!isGenerating} isFullWidth={true} />
+                    {error && <Text variant='error'>{error}</Text>}
+                  </Stack>
                 </Box>
-                {strategyDefinition ? (
-                  <React.Fragment>
-                    <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-                      <Text variant='bold'>{strategyDefinition.summary}</Text>
-                      {strategyDefinition.rules.map((rule) => renderRuleDetails(rule))}
-                    </Stack>
-                    {earningsEstimate && (
-                      <Box variant='card'>
-                        <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-                          <Text variant='bold'>💰 Estimated earnings on $100 investment</Text>
-                          <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} defaultGutter={PaddingSize.Wide2}>
-                            <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                              <Text variant='note'>Good case</Text>
-                              <Text variant='header3'>{`$${earningsEstimate.bestCase.weeklyUsd.toFixed(2)}/wk`}</Text>
-                              <Text variant='bold'>{`${earningsEstimate.bestCase.apyPercent.toFixed(1)}% APY`}</Text>
-                            </Stack>
-                            <Text variant='header3'>→</Text>
-                            <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                              <Text variant='note'>Bad case</Text>
-                              <Text variant='header3'>{`$${earningsEstimate.worstCase.weeklyUsd.toFixed(2)}/wk`}</Text>
-                              <Text variant='bold'>{`${earningsEstimate.worstCase.apyPercent.toFixed(1)}% APY`}</Text>
-                            </Stack>
-                          </Stack>
-                          <Text variant='note' alignment={TextAlignment.Center}>Range based on time-in-range and gas costs</Text>
-                        </Stack>
+              </Stack.Item>
+              <Stack.Item growthFactor={1} shrinkFactor={1}>
+                <Box variant='card'>
+                  <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Wide} padding={PaddingSize.Wide}>
+                    <Text variant='header4'>Price Chart &amp; Strategy Preview</Text>
+                    {isLoadingHistorical ? (
+                      <LoadingShimmer height='300px' />
+                    ) : (
+                      <Box width='100%' height='300px'>
+                        <PriceChart
+                          priceData={historicalData?.pricePoints}
+                          strategyDefinition={strategyDefinition}
+                          currentPrice={poolData?.currentPrice}
+                        />
                       </Box>
                     )}
-                    <Button variant='primary' text='Deploy Agent' onClicked={onDeployClicked} />
-                  </React.Fragment>
-                ) : (
-                  <Text variant='note' alignment={TextAlignment.Center}>Generate a strategy to see overlay details</Text>
-                )}
-              </Stack>
-            </Box>
-          </Stack.Item>
-        </Stack>
+                    {strategyDefinition ? (
+                      <React.Fragment>
+                        <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Wide}>
+                          <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Default}>
+                            <Text variant='header5'>Strategy Summary</Text>
+                            <Text variant='bold'>{strategyDefinition.summary}</Text>
+                          </Stack>
+                          <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Default}>
+                            <Text variant='header5'>Rules</Text>
+                            {strategyDefinition.rules.map((rule) => renderRuleDetails(rule))}
+                          </Stack>
+                        </Stack>
+                        {earningsEstimate && (
+                          <EarningsBox>
+                            <Stack direction={Direction.Vertical} shouldAddGutters={true} defaultGutter={PaddingSize.Default}>
+                              <Text variant='header5'>💰 Estimated earnings on $100 investment</Text>
+                              <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} defaultGutter={PaddingSize.Wide2}>
+                                <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                                  <Text variant='note'>Good case</Text>
+                                  <Text variant='header3'>{`$${earningsEstimate.bestCase.weeklyUsd.toFixed(2)}/wk`}</Text>
+                                  <Text variant='bold'>{`${earningsEstimate.bestCase.apyPercent.toFixed(1)}% APY`}</Text>
+                                </Stack>
+                                <Text variant='header3'>→</Text>
+                                <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                                  <Text variant='note'>Bad case</Text>
+                                  <Text variant='header3'>{`$${earningsEstimate.worstCase.weeklyUsd.toFixed(2)}/wk`}</Text>
+                                  <Text variant='bold'>{`${earningsEstimate.worstCase.apyPercent.toFixed(1)}% APY`}</Text>
+                                </Stack>
+                              </Stack>
+                              <Text variant='note' alignment={TextAlignment.Center}>Range based on time-in-range and gas costs</Text>
+                            </Stack>
+                          </EarningsBox>
+                        )}
+                        <Spacing variant={PaddingSize.Wide} />
+                        <Button variant='primary' text='Deploy Agent' onClicked={onDeployClicked} isFullWidth={true} />
+                      </React.Fragment>
+                    ) : (
+                      <Text variant='note' alignment={TextAlignment.Center}>Generate a strategy to see overlay details</Text>
+                    )}
+                  </Stack>
+                </Box>
+              </Stack.Item>
+            </Stack>
+          </React.Fragment>
+        )}
       </Stack>
     </Stack>
   );

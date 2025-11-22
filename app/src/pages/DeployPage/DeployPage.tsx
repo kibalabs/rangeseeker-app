@@ -29,12 +29,6 @@ const IconBox = styled.div<{ isSelected: boolean }>`
   }
 `;
 
-const SummaryBox = styled.div`
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 16px;
-`;
-
 export function DeployPage(): React.ReactElement {
   const navigator = useNavigator();
   const { rangeSeekerClient } = useGlobals();
@@ -79,25 +73,20 @@ export function DeployPage(): React.ReactElement {
     <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='600px' isFullWidth={true}>
         <Text variant='header1'>Deploy Your Agent</Text>
-        <Text variant='note'>Give your agent a name and an identity.</Text>
-
+        <Text>Give your agent an identity.</Text>
         <Spacing variant={PaddingSize.Wide} />
-
         <Box variant='card'>
           <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
-            <Text variant='header3'>Agent Details</Text>
-
             <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-              <Text>Name</Text>
+              <Text variant='bold'>Name</Text>
               <SingleLineInput
                 value={agentName}
                 onValueChanged={setAgentName}
                 placeholderText='e.g. Alpha Seeker 1'
               />
             </Stack>
-
             <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-              <Text>Icon</Text>
+              <Text variant='bold'>Icon</Text>
               <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center}>
                 {ICONS.map((icon) => (
                   <IconBox
@@ -110,18 +99,12 @@ export function DeployPage(): React.ReactElement {
                 ))}
               </Stack>
             </Stack>
-
             <Spacing variant={PaddingSize.Default} />
-
-            <SummaryBox>
-              <Stack direction={Direction.Vertical} shouldAddGutters={true}>
-                <Text variant='bold'>Strategy Summary</Text>
-                <Text variant='note'>{strategyDefinition.summary}</Text>
-              </Stack>
-            </SummaryBox>
-
+            <Stack direction={Direction.Vertical} shouldAddGutters={true}>
+              <Text variant='bold'>Strategy description</Text>
+              <Text>{strategyDefinition.summary}</Text>
+            </Stack>
             <Spacing variant={PaddingSize.Default} />
-
             <Button
               variant='primary'
               text={isDeploying ? 'Deploying Agent...' : 'Deploy Agent'}
