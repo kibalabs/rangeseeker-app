@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 
 import { Box } from '@kibalabs/ui-react';
-import { ColorType, createChart, IChartApi, Time } from 'lightweight-charts';
+import { AreaSeries, ColorType, createChart, IChartApi, LineSeries, Time } from 'lightweight-charts';
 
 export function MockChart() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -34,7 +34,7 @@ export function MockChart() {
     });
     chartRef.current = chart;
 
-    const lineSeries = chart.addLineSeries({
+    const lineSeries = chart.addSeries(LineSeries, {
       color: '#2EE4E3',
       lineWidth: 2,
     });
@@ -53,7 +53,7 @@ export function MockChart() {
 
     lineSeries.setData(data);
 
-    const areaSeries = chart.addAreaSeries({
+    const areaSeries = chart.addSeries(AreaSeries, {
       topColor: 'rgba(46, 228, 227, 0.2)',
       bottomColor: 'rgba(46, 228, 227, 0.0)',
       lineColor: 'transparent',
