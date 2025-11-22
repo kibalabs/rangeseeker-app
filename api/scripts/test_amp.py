@@ -1,15 +1,11 @@
 # ruff: noqa: T201
-
 import asyncio
 import json
 import os
 
 from rangeseeker.amp_client import AmpClient
 
-# Configuration
 AMP_TOKEN = os.environ['THEGRAPHAMP_API_KEY']
-
-# Edit this query to test different SQL statements
 QUERY = """
 SELECT
     block_num,
@@ -31,39 +27,31 @@ LIMIT 1000
 
 
 async def main() -> None:
-    """Execute test query against AMP."""
     print('=' * 80)
     print('THEGRAPH AMP CLIENT TEST')
     print('=' * 80)
     print()
-
-    # Initialize AMP client
-    client = AmpClient(
+    ampClient = AmpClient(
         flightUrl='https://gateway.amp.staging.thegraph.com',
         token=AMP_TOKEN,
     )
-
     print('Query:')
     print('-' * 80)
     print(QUERY.strip())
     print('-' * 80)
     print()
-
     print('Executing query...')
     print()
     print('Results:')
     print('-' * 80)
-
     rowCount = 0
-    async for row in client.execute_sql(QUERY):
+    async for row in ampClient.execute_sql(QUERY):
         rowCount += 1
         print(f'\nRow {rowCount}:')
         print(json.dumps(row, indent=2, default=str))
-
     print()
     print('-' * 80)
     print(f'✓ Query complete - {rowCount} rows returned')
-
     print()
     print('=' * 80)
 

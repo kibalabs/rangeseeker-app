@@ -15,7 +15,6 @@ class LLM:
 
 
 class GeminiLLM(LLM):
-    # 'gemini-2.5-pro-exp-03-25'
     def __init__(self, apiKey: str, requester: Requester, modelId: str = 'gemini-3-pro-preview') -> None:
         self.apiKey = apiKey
         self.requester = requester

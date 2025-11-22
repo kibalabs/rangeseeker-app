@@ -10,6 +10,7 @@ from typing import Any
 
 from core.requester import Requester
 
+import _path_fix  # noqa: F401
 from rangeseeker.amp_client import AmpClient
 
 # Hardcoded pool configuration (WETH/USDC 0.05% on Base)
@@ -26,58 +27,44 @@ STRATEGY_INPUT = 'I want tight range fee farming but widen if volatility spikes,
 # Configuration
 AMP_TOKEN = os.environ['THEGRAPHAMP_API_KEY']
 GEMINI_API_KEY = os.environ['GEMINI_API_KEY']
+UNISWAP_DATASET = 'edgeandnode/uniswap_v3_base@0.0.1'
 
 # Pyth Network configuration
 PYTH_ETH_USD_PRICE_ID = '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace'
 PYTH_WS_URL = 'wss://hermes.pyth.network/ws'
 
 
-class TheGraphAMPClient:
-    """Client for querying TheGraph AMP for Uniswap V3 pool data."""
+class UniswapDataClient:
+    """Client for querying Uniswap V3 pool data from TheGraph AMP."""
 
-    def __init__(self, flightUrl: str, token: str | None = None) -> None:
-        self.flightUrl = flightUrl
-        self.dataset = 'edgeandnode/base_mainnet@0.0.1'
-        self.ampClient = AmpClient(flightUrl=flightUrl, token=token)
-
-    async def execute_sql(self, sql: str) -> list[dict[str, Any]]:
-        """Execute SQL query against AMP dataset."""
-        results = []
-        async for row in self.ampClient.execute_sql(sql):
-            results.append(row)
-        return results
+    def __init__(self, ampClient: AmpClient, dataset: str) -> None:
+        self.ampClient = ampClient
+        self.dataset = dataset
 
     async def get_pool_swaps(self, poolAddress: str, hoursBack: int = 24) -> list[dict[str, Any]]:
-        """
-        Fetch recent swaps for a pool from Uniswap V3 Swap event logs.
-
-        Swap event signature: 0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67
-        """
-        # Calculate cutoff timestamp as a proper timestamp
+        """Fetch recent swaps for a pool from Uniswap V3 Swap events."""
         cutoffTime = datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(hours=hoursBack)
         timestampCutoff = cutoffTime.strftime('%Y-%m-%d %H:%M:%S')
 
-        # Query logs table for Swap events from this pool
         sql = f"""
         SELECT
             block_num,
             timestamp,
             tx_hash,
             log_index,
-            data,
-            topic1,
-            topic2,
-            topic3
-        FROM "{self.dataset}".logs
+            event
+        FROM "{self.dataset}".event__swap
         WHERE
-            address = decode(SUBSTRING(LOWER('{poolAddress}'), 3), 'hex')
-            AND topic0 = decode('c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67', 'hex')
+            pool_address = decode(SUBSTRING(LOWER('{poolAddress}'), 3), 'hex')
             AND timestamp > TIMESTAMP '{timestampCutoff}'
         ORDER BY timestamp DESC
         LIMIT 1000
         """
 
-        return await self.execute_sql(sql)
+        results = []
+        async for row in self.ampClient.execute_sql(sql):
+            results.append(row)
+        return results
 
     async def get_pool_current_state(self, poolAddress: str) -> dict[str, Any] | None:
         """Get most recent state from pool by querying latest Swap event."""
@@ -85,52 +72,35 @@ class TheGraphAMPClient:
         SELECT
             block_num,
             timestamp,
-            data,
-            topic1,
-            topic2,
-            topic3
-        FROM "{self.dataset}".logs
+            event
+        FROM "{self.dataset}".event__swap
         WHERE
-            address = decode(SUBSTRING(LOWER('{poolAddress}'), 3), 'hex')
-            AND topic0 = decode('c42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67', 'hex')
+            pool_address = decode(SUBSTRING(LOWER('{poolAddress}'), 3), 'hex')
         ORDER BY block_num DESC
         LIMIT 1
         """
 
-        results = await self.execute_sql(sql)
+        results = []
+        async for row in self.ampClient.execute_sql(sql):
+            results.append(row)
         return results[0] if results else None
 
     def decode_swap_event(self, log: dict[str, Any]) -> dict[str, Any]:
-        """
-        Decode Uniswap V3 Swap event from log data.
-
-        Event: Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)
-        """
-        # Parse data field (contains non-indexed parameters: amount0, amount1, sqrtPriceX96, liquidity, tick)
-        data = log.get('data', '0x')
-        data = data.removeprefix('0x')
-
-        # Each uint256 is 64 hex chars (32 bytes)
-        amount0 = int(data[0:64], 16) if len(data) >= 64 else 0
-        amount1 = int(data[64:128], 16) if len(data) >= 128 else 0
-        sqrtPriceX96 = int(data[128:192], 16) if len(data) >= 192 else 0
-        liquidity = int(data[192:256], 16) if len(data) >= 256 else 0
-        tick = int(data[256:320], 16) if len(data) >= 320 else 0
-
+        """Extract Uniswap V3 Swap event data from pre-built event table."""
+        event = log.get('event', {})
         return {
             'timestamp': log.get('timestamp', 0),
-            'sqrtPriceX96': str(sqrtPriceX96),
-            'amount0': str(amount0),
-            'amount1': str(amount1),
-            'liquidity': str(liquidity),
-            'tick': str(tick),
+            'sqrtPriceX96': str(event.get('sqrtPriceX96', 0)),
+            'amount0': str(event.get('amount0', 0)),
+            'amount1': str(event.get('amount1', 0)),
+            'liquidity': str(event.get('liquidity', 0)),
+            'tick': str(event.get('tick', 0)),
         }
 
     def calculate_price_from_sqrt_price_x96(self, sqrtPriceX96: str, token0Decimals: int = 18, token1Decimals: int = 6) -> float:
         """Convert Uniswap V3 sqrtPriceX96 to human-readable price."""
         sqrtPrice = int(sqrtPriceX96) / (2**96)
         price = sqrtPrice**2
-        # Adjust for token decimals (price is token1/token0)
         adjustedPrice = price * (10**token0Decimals) / (10**token1Decimals)
         return adjustedPrice
 
@@ -347,10 +317,11 @@ async def main() -> None:
 
     # Initialize clients
     requester = Requester()
-    graphClient = TheGraphAMPClient(
+    ampClient = AmpClient(
         flightUrl='https://gateway.amp.staging.thegraph.com',
         token=AMP_TOKEN,
     )
+    uniswapClient = UniswapDataClient(ampClient=ampClient, dataset=UNISWAP_DATASET)
     parser = StrategyParser(requester, GEMINI_API_KEY)
 
     print(f'Pool: {BASE_ASSET}/{QUOTE_ASSET} ({POOL_ADDRESS})')
@@ -363,14 +334,14 @@ async def main() -> None:
     print('-' * 80)
     print()
     print('NOTE: TheGraph AMP provides SQL access to blockchain data via hosted datasets.')
-    print(f'Dataset: {graphClient.dataset}')
+    print(f'Dataset: {uniswapClient.dataset}')
     print('Available tables: blocks, transactions, logs (raw blockchain data)')
     print('Uniswap V3 data derived from logs table filtering by pool address')
     print()
 
     # Fetch recent swaps for volatility calculation
     print('Fetching 24h swap data for volatility calculation...')
-    swaps = await graphClient.get_pool_swaps(POOL_ADDRESS, hoursBack=24)
+    swaps = await uniswapClient.get_pool_swaps(POOL_ADDRESS, hoursBack=24)
     print(f'✓ Found {len(swaps)} swaps in last 24h')
 
     if not swaps:
@@ -379,14 +350,14 @@ async def main() -> None:
         currentPrice = 0.0
     else:
         # Decode swap events
-        decodedSwaps = [graphClient.decode_swap_event(swap) for swap in swaps]
+        decodedSwaps = [uniswapClient.decode_swap_event(swap) for swap in swaps]
 
         # Calculate current price from most recent swap
         latestSwap = decodedSwaps[0]
-        currentPrice = graphClient.calculate_price_from_sqrt_price_x96(latestSwap['sqrtPriceX96'])
+        currentPrice = uniswapClient.calculate_price_from_sqrt_price_x96(latestSwap['sqrtPriceX96'])
 
         # Calculate volatility
-        volatility = graphClient.calculate_volatility(decodedSwaps)
+        volatility = uniswapClient.calculate_volatility(decodedSwaps)
 
         print(f'✓ Current Price: ${currentPrice:,.2f} USDC per WETH')
         print(f'✓ 24h Annualized Volatility: {volatility * 100:.2f}%')
@@ -443,8 +414,8 @@ async def main() -> None:
                     'ruleType': rule['type'],
                     'feedType': 'THEGRAPH_VOLATILITY',
                     'feedConfig': {
-                        'flightUrl': graphClient.flightUrl,
-                        'dataset': graphClient.dataset,
+                        'flightUrl': ampClient.flightUrl,
+                        'dataset': uniswapClient.dataset,
                         'poolAddress': POOL_ADDRESS,
                         'windowHours': 24,
                     },
