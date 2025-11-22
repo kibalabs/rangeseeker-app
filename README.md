@@ -157,3 +157,6 @@ Backend worker (runs every 60s or Pyth WS triggered):
      - emit event → backend logs for activity feed
 
 Database: postrgresql – stores vault → agent mapping + activity log
+
+
+## Challenes along the way
