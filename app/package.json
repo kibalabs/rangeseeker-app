@@ -8,6 +8,7 @@
     "@kibalabs/core-react": "^0.9.7-next.2",
     "@kibalabs/ui-react": "^0.11.3-next.17",
     "@kibalabs/ui-react-toast": "^0.2.3-next.2",
+    "lightweight-charts": "^4.2.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "styled-components": "6.1.19"
