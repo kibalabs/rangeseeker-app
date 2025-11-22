@@ -73,6 +73,16 @@ export function PriceChart(props: PriceChartProps) {
     });
     areaSeries.setData(uniqueData);
 
+    // Set visible range to show last 24 hours by default
+    if (uniqueData.length > 0) {
+      const lastTimestamp = uniqueData[uniqueData.length - 1].time as number;
+      const oneDayAgo = lastTimestamp - (24 * 60 * 60);
+      chart.timeScale().setVisibleRange({
+        from: oneDayAgo as Time,
+        to: lastTimestamp as Time,
+      });
+    }
+
     const handleResize = () => {
       if (chartContainerRef.current) {
         chart.applyOptions({

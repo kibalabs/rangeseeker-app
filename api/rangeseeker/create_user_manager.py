@@ -1,8 +1,14 @@
 import os
 
+from core.requester import Requester
 from core.store.database import Database
 
+from rangeseeker.amp_client import AmpClient
 from rangeseeker.app_manager import AppManager
+from rangeseeker.gemini_llm import GeminiLLM
+from rangeseeker.uniswap_data_client import UniswapDataClient
+from rangeseeker.strategy_manager import StrategyManager
+from rangeseeker.strategy_parser import StrategyParser
 from rangeseeker.user_manager import UserManager
 
 DB_HOST = os.environ['DB_HOST']
@@ -22,6 +28,14 @@ def create_app_manager() -> AppManager:
             password=DB_PASSWORD,
         )
     )
+    requester = Requester()
+    ampToken = os.environ.get('THEGRAPHAMP_API_KEY', '')
+    geminiApiKey = os.environ.get('GEMINI_API_KEY', '')
+    ampClient = AmpClient(flightUrl='https://gateway.amp.staging.thegraph.com', token=ampToken)
+    uniswapClient = UniswapDataClient(ampClient=ampClient)
+    geminiLlm = GeminiLLM(apiKey=geminiApiKey, requester=requester)
+    parser = StrategyParser(llm=geminiLlm)
     userManager = UserManager(database=database)
-    appManager = AppManager(database=database, userManager=userManager)
+    strategyManager = StrategyManager(database=database, uniswapClient=uniswapClient, parser=parser)
+    appManager = AppManager(database=database, userManager=userManager, strategyManager=strategyManager)
     return appManager

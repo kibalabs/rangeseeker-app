@@ -1,8 +1,10 @@
 import base64
+import typing
 
 from core.exceptions import ForbiddenException
 from core.exceptions import NotFoundException
 from core.exceptions import UnauthorizedException
+from core.requester import Requester
 from core.store.database import Database
 from core.util import chain_util
 from eth_account.messages import encode_defunct
@@ -13,15 +15,17 @@ from rangeseeker.api.authorizer import Authorizer
 from rangeseeker.api.v1_resources import AuthToken
 from rangeseeker.model import User
 from rangeseeker.model import UserWallet
+from rangeseeker.strategy_manager import StrategyManager
 from rangeseeker.user_manager import UserManager
 
 w3 = Web3()
 
 
 class AppManager(Authorizer):
-    def __init__(self, database: Database, userManager: UserManager) -> None:
+    def __init__(self, database: Database, userManager: UserManager, strategyManager: StrategyManager) -> None:
         self.database = database
         self.userManager = userManager
+        self.strategyManager = strategyManager
         self._signatureSignerMap: dict[str, str] = {}
 
     async def _retrieve_signature_signer_address(self, signatureString: str) -> str:
@@ -70,3 +74,39 @@ class AppManager(Authorizer):
 
     async def get_user_wallet(self, userId: str) -> UserWallet:
         return await self.userManager.get_user_wallet(userId=userId)
+
+    async def parse_strategy(self, description: str) -> dict[str, typing.Any]:
+        import dataclasses
+        strategyDefinition = await self.strategyManager.parse_strategy(description=description)
+        return dataclasses.asdict(strategyDefinition)
+
+    async def get_pool_data(self, chainId: int, token0Address: str, token1Address: str) -> dict[str, typing.Any]:
+        poolAddress = '0xd0b53D9277642d899DF5C87A3966A349A798F224'
+        currentPrice = await self.strategyManager.uniswapClient.get_current_price(poolAddress=poolAddress)
+        volatility = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=24)
+        return {
+            'chainId': chainId,
+            'token0Address': token0Address,
+            'token1Address': token1Address,
+            'poolAddress': poolAddress,
+            'currentPrice': currentPrice,
+            'volatility24h': volatility,
+        }
+
+    async def get_pool_historical_data(self, chainId: int, token0Address: str, token1Address: str, hoursBack: int) -> dict[str, typing.Any]:
+        poolAddress = '0xd0b53D9277642d899DF5C87A3966A349A798F224'
+        swaps = await self.strategyManager.uniswapClient.get_pool_swaps(poolAddress=poolAddress, hoursBack=hoursBack)
+        pricePoints = []
+        for swap in swaps:
+            price = self.strategyManager.uniswapClient.calculate_price_from_sqrt_price_x96(swap.sqrtPriceX96)
+            pricePoints.append({
+                'timestamp': swap.timestamp,
+                'price': price,
+            })
+        return {
+            'chainId': chainId,
+            'token0Address': token0Address,
+            'token1Address': token1Address,
+            'poolAddress': poolAddress,
+            'pricePoints': pricePoints,
+        }

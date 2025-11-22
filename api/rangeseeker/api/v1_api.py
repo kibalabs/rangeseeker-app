@@ -23,7 +23,26 @@ def create_v1_routes(appManager: AppManager) -> list[Route]:
         user = await appManager.create_user(walletAddress=request.data.walletAddress, username=request.data.username)
         return endpoints.CreateUserResponse(user=resources.User.model_validate(user.model_dump()))
 
+    @json_route(requestType=endpoints.ParseStrategyRequest, responseType=endpoints.ParseStrategyResponse)
+    @authorize_signature(authorizer=appManager)
+    async def parse_strategy(request: KibaApiRequest[endpoints.ParseStrategyRequest]) -> endpoints.ParseStrategyResponse:
+        strategyDefinition = await appManager.parse_strategy(description=request.data.description)
+        return endpoints.ParseStrategyResponse(strategyDefinition=resources.StrategyDefinition.model_validate(strategyDefinition))
+
+    @json_route(requestType=endpoints.GetPoolDataRequest, responseType=endpoints.GetPoolDataResponse)
+    async def get_pool_data(request: KibaApiRequest[endpoints.GetPoolDataRequest]) -> endpoints.GetPoolDataResponse:
+        poolData = await appManager.get_pool_data(chainId=request.data.chainId, token0Address=request.data.token0Address, token1Address=request.data.token1Address)
+        return endpoints.GetPoolDataResponse(poolData=resources.PoolData.model_validate(poolData))
+
+    @json_route(requestType=endpoints.GetPoolHistoricalDataRequest, responseType=endpoints.GetPoolHistoricalDataResponse)
+    async def get_pool_historical_data(request: KibaApiRequest[endpoints.GetPoolHistoricalDataRequest]) -> endpoints.GetPoolHistoricalDataResponse:
+        poolHistoricalData = await appManager.get_pool_historical_data(chainId=request.data.chainId, token0Address=request.data.token0Address, token1Address=request.data.token1Address, hoursBack=request.data.hoursBack)
+        return endpoints.GetPoolHistoricalDataResponse(poolHistoricalData=resources.PoolHistoricalData.model_validate(poolHistoricalData))
+
     return [
         Route('/users/login-with-wallet', user_login_with_wallet_address, methods=['POST']),
         Route('/users', create_user, methods=['POST']),
+        Route('/strategies/parse', parse_strategy, methods=['POST']),
+        Route('/pools', get_pool_data, methods=['GET']),
+        Route('/pools/historical-data', get_pool_historical_data, methods=['GET']),
     ]

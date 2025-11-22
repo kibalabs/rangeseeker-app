@@ -18,3 +18,50 @@ class CreateUserRequest(BaseModel):
 
 class CreateUserResponse(BaseModel):
     user: resources.User
+
+
+class ParseStrategyRequest(BaseModel):
+    description: str
+
+
+class ParseStrategyResponse(BaseModel):
+    strategyDefinition: resources.StrategyDefinition
+
+
+class GetPoolDataRequest(BaseModel):
+    chainId: int
+    token0Address: str
+    token1Address: str
+
+
+class GetPoolDataResponse(BaseModel):
+    poolData: resources.PoolData
+
+
+class GetPoolHistoricalDataRequest(BaseModel):
+    chainId: int
+    token0Address: str
+    token1Address: str
+    hoursBack: int
+
+
+class GetPoolHistoricalDataResponse(BaseModel):
+    poolHistoricalData: resources.PoolHistoricalData
+
+
+class CreateStrategyRequest(BaseModel):
+    name: str
+    description: str
+    strategyDefinition: resources.StrategyDefinition
+
+
+class CreateStrategyResponse(BaseModel):
+    strategy: resources.Strategy
+
+
+class GetStrategyResponse(BaseModel):
+    strategy: resources.Strategy
+
+
+class ListUserStrategiesResponse(BaseModel):
+    strategies: list[resources.Strategy]
