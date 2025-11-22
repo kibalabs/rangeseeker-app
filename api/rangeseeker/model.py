@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 
+from core.util.typing_util import JsonObject
 from pydantic import BaseModel
 
 
@@ -18,3 +19,15 @@ class UserWallet(BaseModel):
     updatedDate: datetime.datetime
     userId: str
     walletAddress: str
+
+
+class Strategy(BaseModel):
+    strategyId: str
+    createdDate: datetime.datetime
+    updatedDate: datetime.datetime
+    userId: str
+    name: str
+    description: str
+    rulesJson: JsonObject
+    feedRequirements: list[str]
+    summary: str

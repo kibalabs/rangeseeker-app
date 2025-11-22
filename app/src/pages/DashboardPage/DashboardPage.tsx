@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 
 import { GlassCard } from '../../components/GlassCard';
-import { MockChart } from '../../components/MockChart';
+import { PriceChart } from '../../components/PriceChart';
 
 const StatBox = styled.div`
   background-color: rgba(255, 255, 255, 0.05);
@@ -108,7 +108,7 @@ export function DashboardPage(): React.ReactElement {
             <Spacing variant={PaddingSize.Default} />
 
             <Box width='100%' height='300px'>
-              <MockChart />
+              <PriceChart />
             </Box>
 
             <Spacing variant={PaddingSize.Default} />

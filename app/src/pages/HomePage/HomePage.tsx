@@ -6,7 +6,7 @@ import { Eip6963ProviderDetail, useOnLinkWeb3AccountsClicked, useWeb3OnLoginClic
 
 import { useAuth } from '../../AuthContext';
 import { GlassCard } from '../../components/GlassCard';
-import { MockChart } from '../../components/MockChart';
+import { PriceChart } from '../../components/PriceChart';
 
 interface IProviderDialogProps {
   isOpen: boolean;
@@ -119,7 +119,7 @@ export function HomePage(): React.ReactElement {
         <Text variant='large' alignment={TextAlignment.Center}>Agentic Liquidity Provision</Text>
 
         <Box width='100%' height='400px'>
-          <MockChart />
+          <PriceChart />
         </Box>
 
         <Stack direction={Direction.Horizontal} shouldAddGutters={true} isFullWidth={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center}>

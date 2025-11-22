@@ -1,6 +1,7 @@
 import sqlalchemy
 from sqlalchemy.dialects import postgresql as sqlalchemy_psql
 
+from rangeseeker.model import Strategy
 from rangeseeker.model import User
 from rangeseeker.model import UserWallet
 from rangeseeker.store.entity_repository import EntityRepository
@@ -33,3 +34,20 @@ UserWalletsTable = sqlalchemy.Table(
 )
 
 UserWalletsRepository = EntityRepository(table=UserWalletsTable, modelClass=UserWallet)
+
+
+StrategiesTable = sqlalchemy.Table(
+    'tbl_strategies',
+    metadata,
+    sqlalchemy.Column(key='strategyId', name='id', type_=sqlalchemy_psql.UUID, primary_key=True),
+    sqlalchemy.Column(key='createdDate', name='created_date', type_=sqlalchemy.DateTime, nullable=False),
+    sqlalchemy.Column(key='updatedDate', name='updated_date', type_=sqlalchemy.DateTime, nullable=False),
+    sqlalchemy.Column(key='userId', name='user_id', type_=sqlalchemy_psql.UUID, nullable=False),
+    sqlalchemy.Column(key='name', name='name', type_=sqlalchemy.Text, nullable=False),
+    sqlalchemy.Column(key='description', name='description', type_=sqlalchemy.Text, nullable=False),
+    sqlalchemy.Column(key='rulesJson', name='rules_json', type_=sqlalchemy_psql.JSONB, nullable=False),
+    sqlalchemy.Column(key='feedRequirements', name='feed_requirements', type_=sqlalchemy_psql.ARRAY(sqlalchemy.Text), nullable=False),
+    sqlalchemy.Column(key='summary', name='summary', type_=sqlalchemy.Text, nullable=False),
+)
+
+StrategiesRepository = EntityRepository(table=StrategiesTable, modelClass=Strategy)
