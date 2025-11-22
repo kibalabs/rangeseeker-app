@@ -7,12 +7,14 @@ import math
 import os
 import statistics
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import cast
 
-from core.requester import Requester
 from core.exceptions import KibaException
+from core.requester import Requester
+
 import _path_fix  # type: ignore[import-not-found] # noqa: F401
 from rangeseeker.amp_client import AmpClient
+from rangeseeker.amp_client import SqlValue
 from rangeseeker.gemini_llm import GeminiLLM
 
 # Hardcoded pool configuration (WETH/USDC 0.05% on Base)
@@ -63,25 +65,9 @@ class UniswapDataClient:
         self.ampClient = ampClient
         self.ampDatasetName = 'edgeandnode/uniswap_v3_base@0.0.1'
 
-    def _parse_swap_event(self, row: dict[str, Any]) -> SwapEvent:  # type: ignore[explicit-any]
-        event = cast(dict[str, Any], row.get('event', {}))  # type: ignore[explicit-any]
-        timestamp_val = row.get('timestamp')
-        timestamp = int(timestamp_val.timestamp()) if isinstance(timestamp_val, datetime.datetime) else 0
-        return SwapEvent(
-            timestamp=timestamp,
-            sqrtPriceX96=int(cast(int, event.get('sqrtPriceX96', 0))),
-            amount0=int(cast(int, event.get('amount0', 0))),
-            amount1=int(cast(int, event.get('amount1', 0))),
-            liquidity=int(cast(int, event.get('liquidity', 0))),
-            tick=int(cast(int, event.get('tick', 0))),
-            txHash=str(row.get('tx_hash', '')),
-            blockNumber=int(cast(int, row.get('block_num', 0))),
-        )
-
     async def get_pool_swaps(self, poolAddress: str, hoursBack: int = 24) -> list[SwapEvent]:
         cutoffTime = datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(hours=hoursBack)
         timestampCutoff = cutoffTime.strftime('%Y-%m-%d %H:%M:%S')
-
         sql = f"""
         SELECT
             block_num,
@@ -96,7 +82,24 @@ class UniswapDataClient:
         ORDER BY timestamp DESC
         LIMIT 1000
         """
-        return [self._parse_swap_event(row) async for row in self.ampClient.execute_sql(sql)]  # type: ignore[arg-type]
+        swaps = []
+        async for row in self.ampClient.execute_sql(sql):
+            event = cast(dict[str, SqlValue], row.get('event', {}))
+            timestamp_val = row.get('timestamp')
+            timestamp = int(timestamp_val.timestamp()) if isinstance(timestamp_val, datetime.datetime) else 0
+            swaps.append(
+                SwapEvent(
+                    timestamp=timestamp,
+                    sqrtPriceX96=int(cast(int, event.get('sqrtPriceX96', 0))),
+                    amount0=int(cast(int, event.get('amount0', 0))),
+                    amount1=int(cast(int, event.get('amount1', 0))),
+                    liquidity=int(cast(int, event.get('liquidity', 0))),
+                    tick=int(cast(int, event.get('tick', 0))),
+                    txHash=str(row.get('tx_hash', '')),
+                    blockNumber=int(cast(int, row.get('block_num', 0))),
+                )
+            )
+        return swaps
 
     async def get_pool_current_state(self, poolAddress: str) -> PoolState | None:
         sql = f"""
@@ -114,7 +117,7 @@ class UniswapDataClient:
         if not results:
             return None
         row = results[0]
-        event = cast(dict[str, Any], row.get('event', {}))  # type: ignore[explicit-any]
+        event = cast(dict[str, SqlValue], row.get('event', {}))
         timestamp_val = row.get('timestamp')
         timestamp = int(timestamp_val.timestamp()) if isinstance(timestamp_val, datetime.datetime) else 0
         return PoolState(
@@ -162,7 +165,7 @@ class UniswapDataClient:
             return 0.0
         swapsPerYear = (count / durationSeconds) * (365 * 24 * 3600)
         annualizedVol = stdDev * math.sqrt(swapsPerYear)
-        return annualizedVol
+        return float(annualizedVol)
 
     async def get_current_price(self, poolAddress: str, token0Decimals: int = 18, token1Decimals: int = 6) -> float:
         state = await self.get_pool_current_state(poolAddress)
@@ -204,7 +207,7 @@ class StrategyParser:
     def __init__(self, llm: GeminiLLM) -> None:
         self.llm = llm
 
-    async def parse(self, description: str, contextData: dict[str, Any]) -> dict[str, Any]:  # type: ignore[explicit-any]
+    async def parse(self, description: str, contextData: dict[str, float | str | None]) -> dict:  # type: ignore[type-arg]
         systemPrompt = """You are a DeFi strategy analyzer that converts natural language descriptions into structured Uniswap V3 liquidity provision rules.
 
 Current market context:
@@ -284,11 +287,10 @@ Parse the user's strategy and create appropriate rules with correct priorities. 
         if 'rules' not in parsed or not isinstance(parsed['rules'], list):
             raise KibaException('LLM response missing rules array')
         if 'summary' not in parsed:
-            rules = cast(list[dict[str, Any]], parsed['rules'])  # type: ignore[explicit-any]
-            parsed['summary'] = self._generate_summary(rules)
+            parsed['summary'] = self._generate_summary(parsed['rules'])
         return parsed
 
-    def _generate_summary(self, rules: list[dict[str, Any]]) -> str:  # type: ignore[explicit-any]
+    def _generate_summary(self, rules: list) -> str:  # type: ignore[type-arg]
         summaryParts = []
         for rule in rules:
             if rule['type'] == 'RANGE_WIDTH':
@@ -344,7 +346,7 @@ async def main() -> None:
     print(f'✓ Current Price: ${currentPrice:,.2f} USDC per WETH')
     print(f'✓ 24h Annualized Volatility: {volatility * 100:.2f}%')
     print()
-    contextData = {
+    contextData: dict[str, float | str] = {
         'currentPrice': currentPrice,
         'volatility': volatility,
         'swapCount24h': swapCount,
