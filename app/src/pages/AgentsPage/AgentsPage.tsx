@@ -1,8 +1,9 @@
 import React from 'react';
-import styled from 'styled-components';
+
 
 import { useNavigator } from '@kibalabs/core-react';
-import { Alignment, Box, Direction, PaddingSize, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
+import { Alignment, Direction, PaddingSize, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
+import styled from 'styled-components';
 
 import { GlassCard } from '../../components/GlassCard';
 
@@ -101,7 +102,7 @@ export function AgentsPage(): React.ReactElement {
         <Spacing variant={PaddingSize.Wide} />
 
         <Stack direction={Direction.Horizontal} isFullWidth={true} shouldAddGutters={true} childAlignment={Alignment.Start} contentAlignment={Alignment.Start}>
-          
+
           {/* Existing Agent Card */}
           <ClickableBox onClick={onAgentClicked}>
             <AgentCard>

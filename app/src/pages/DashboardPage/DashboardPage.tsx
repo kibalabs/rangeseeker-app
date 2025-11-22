@@ -66,13 +66,8 @@ export function DashboardPage(): React.ReactElement {
   return (
     <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
-        <FlexRow>
-          <Text variant='header1'>Dashboard</Text>
-          <Button variant='primary' text='Create New Agent' onClicked={() => {}} />
-        </FlexRow>
-
+        <Text variant='header1'>Dashboard</Text>
         <Spacing variant={PaddingSize.Wide} />
-
         <GlassCard>
           <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
             <FlexRow>
