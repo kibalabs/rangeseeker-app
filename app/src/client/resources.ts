@@ -20,11 +20,28 @@ export class User {
   };
 }
 
-export interface Agent {
-  agentId: string;
-  name: string;
-  emoji: string;
-  ownerId: string;
+export class Agent {
+  public constructor(
+    readonly agentId: string,
+    readonly userId: string,
+    readonly strategyId: string,
+    readonly name: string,
+    readonly emoji: string,
+    readonly createdDate: Date,
+    readonly updatedDate: Date,
+  ) { }
+
+  public static fromObject = (obj: RawObject): Agent => {
+    return new Agent(
+      String(obj.agentId),
+      String(obj.userId),
+      String(obj.strategyId),
+      String(obj.name),
+      String(obj.emoji),
+      dateFromString(String(obj.createdDate)),
+      dateFromString(String(obj.updatedDate)),
+    );
+  };
 }
 
 export interface DynamicWidening {

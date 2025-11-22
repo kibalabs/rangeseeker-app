@@ -5,7 +5,10 @@ import { useNavigator } from '@kibalabs/core-react';
 import { Alignment, Button, Direction, PaddingSize, SingleLineInput, Spacing, Stack, Text } from '@kibalabs/ui-react';
 import styled from 'styled-components';
 
+import { useAuth } from '../../AuthContext';
 import { GlassCard } from '../../components/GlassCard';
+import { useGlobals } from '../../GlobalsContext';
+import { useStrategyCreation } from '../../StrategyCreationContext';
 
 const ICONS = ['🤖', '🚀', '💎', '🦁', '🦉', '⚡️'];
 
@@ -35,20 +38,46 @@ const SummaryBox = styled.div`
 
 export function DeployPage(): React.ReactElement {
   const navigator = useNavigator();
+  const { rangeSeekerClient } = useGlobals();
+  const { authToken } = useAuth();
+  const { strategyDefinition, strategyDescription } = useStrategyCreation();
   const [agentName, setAgentName] = useState<string>('Range Seeker');
   const [selectedIcon, setSelectedIcon] = useState<string>(ICONS[0]);
   const [isDeploying, setIsDeploying] = useState<boolean>(false);
 
-  const onDeployClicked = () => {
+  const onDeployClicked = async () => {
+    if (!authToken || !strategyDefinition) {
+      return;
+    }
     setIsDeploying(true);
-    setTimeout(() => {
-      setIsDeploying(false);
+    try {
+      await rangeSeekerClient.createAgent(
+        agentName,
+        selectedIcon,
+        agentName, // Using agent name as strategy name for now
+        strategyDescription,
+        strategyDefinition,
+        authToken,
+      );
       navigator.navigateTo('/dashboard');
-    }, 2000);
+    } catch (error) {
+      console.error('Failed to deploy agent:', error);
+      setIsDeploying(false);
+    }
   };
 
+  if (!strategyDefinition) {
+    return (
+      <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center}>
+        <Text>No strategy defined. Please go back and create a strategy.</Text>
+        <Spacing variant={PaddingSize.Default} />
+        <Button variant='primary' text='Create Strategy' onClicked={() => navigator.navigateTo('/create')} />
+      </Stack>
+    );
+  }
+
   return (
-    <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
+    <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='600px' isFullWidth={true}>
         <Text variant='header1'>Deploy Your Agent</Text>
         <Text variant='note'>Give your agent a name and an identity.</Text>
@@ -88,8 +117,7 @@ export function DeployPage(): React.ReactElement {
             <SummaryBox>
               <Stack direction={Direction.Vertical} shouldAddGutters={true}>
                 <Text variant='bold'>Strategy Summary</Text>
-                <Text variant='note'>Aggressive Fee Farming (±3.2%)</Text>
-                <Text variant='note'>Auto-widen on vol spike &gt; 5%</Text>
+                <Text variant='note'>{strategyDefinition.summary}</Text>
               </Stack>
             </SummaryBox>
 

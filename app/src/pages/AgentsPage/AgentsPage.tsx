@@ -1,11 +1,13 @@
 import React from 'react';
 
-
-import { useNavigator } from '@kibalabs/core-react';
+import { useInitialization, useNavigator } from '@kibalabs/core-react';
 import { Alignment, Direction, PaddingSize, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
 import styled from 'styled-components';
 
+import { useAuth } from '../../AuthContext';
+import { Agent } from '../../client/resources';
 import { GlassCard } from '../../components/GlassCard';
+import { useGlobals } from '../../GlobalsContext';
 
 const AgentCard = styled(GlassCard)`
   cursor: pointer;
@@ -84,6 +86,19 @@ const CreateIconBox = styled.div`
 
 export function AgentsPage(): React.ReactElement {
   const navigator = useNavigator();
+  const { rangeSeekerClient } = useGlobals();
+  const { authToken } = useAuth();
+  const [agents, setAgents] = React.useState<Agent[] | null>(null);
+
+  useInitialization(() => {
+    const init = async () => {
+      if (authToken) {
+        const newAgents = await rangeSeekerClient.listAgents(authToken);
+        setAgents(newAgents);
+      }
+    };
+    init();
+  });
 
   const onAgentClicked = () => {
     navigator.navigateTo('/dashboard');
@@ -94,40 +109,38 @@ export function AgentsPage(): React.ReactElement {
   };
 
   return (
-    <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
+    <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
         <Text variant='header1'>Your Agents</Text>
         <Text variant='note'>Manage your autonomous liquidity agents.</Text>
-
         <Spacing variant={PaddingSize.Wide} />
-
-        <Stack direction={Direction.Horizontal} isFullWidth={true} shouldAddGutters={true} childAlignment={Alignment.Start} contentAlignment={Alignment.Start}>
-
-          {/* Existing Agent Card */}
-          <ClickableBox onClick={onAgentClicked}>
-            <AgentCard>
-              <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center}>
-                <Stack direction={Direction.Horizontal} isFullWidth={true} contentAlignment={Alignment.End}>
-                  <StatusBadge>Active</StatusBadge>
-                </Stack>
-                <IconBox>🤖</IconBox>
-                <Text variant='header3'>Alpha Seeker 1</Text>
-                <Text variant='note' alignment={TextAlignment.Center}>Aggressive Fee Farming</Text>
-                <Spacing variant={PaddingSize.Default} />
-                <Stack direction={Direction.Horizontal} shouldAddGutters={true}>
-                  <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                    <Text variant='note'>TVL</Text>
-                    <Text variant='bold'>$5,432</Text>
+        <Stack direction={Direction.Horizontal} isFullWidth={true} shouldAddGutters={true} childAlignment={Alignment.Start} contentAlignment={Alignment.Start} shouldWrapItems={true}>
+          {agents?.map((agent: Agent): React.ReactElement => (
+            <ClickableBox key={agent.agentId} onClick={onAgentClicked}>
+              <AgentCard>
+                <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center}>
+                  <Stack direction={Direction.Horizontal} isFullWidth={true} contentAlignment={Alignment.End}>
+                    <StatusBadge>Active</StatusBadge>
                   </Stack>
-                  <Divider />
-                  <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                    <Text variant='note'>APY</Text>
-                    <Text variant='bold'><ColoredText color='#2EE4E3'>12.4%</ColoredText></Text>
+                  <IconBox>{agent.emoji}</IconBox>
+                  <Text variant='header3'>{agent.name}</Text>
+                  <Text variant='note' alignment={TextAlignment.Center}>Strategy</Text>
+                  <Spacing variant={PaddingSize.Default} />
+                  <Stack direction={Direction.Horizontal} shouldAddGutters={true}>
+                    <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                      <Text variant='note'>TVL</Text>
+                      <Text variant='bold'>$0</Text>
+                    </Stack>
+                    <Divider />
+                    <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                      <Text variant='note'>APY</Text>
+                      <Text variant='bold'><ColoredText color='#2EE4E3'>0%</ColoredText></Text>
+                    </Stack>
                   </Stack>
                 </Stack>
-              </Stack>
-            </AgentCard>
-          </ClickableBox>
+              </AgentCard>
+            </ClickableBox>
+          ))}
 
           {/* Create New Agent Card */}
           <ClickableBox onClick={onCreateClicked}>

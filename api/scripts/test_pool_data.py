@@ -6,8 +6,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from rangeseeker.amp_client import AmpClient
-from rangeseeker.uniswap_data_client import UniswapDataClient
+from rangeseeker.external.amp_client import AmpClient
+from rangeseeker.external.uniswap_data_client import UniswapDataClient
 
 CHAIN_ID = 8453
 WETH_ADDRESS = '0x4200000000000000000000000000000000000006'

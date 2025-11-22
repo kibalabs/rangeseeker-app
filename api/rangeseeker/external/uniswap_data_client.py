@@ -8,8 +8,8 @@ from core.exceptions import NotFoundException
 from core.util import chain_util
 from pydantic import BaseModel
 
-from rangeseeker.amp_client import AmpClient
-from rangeseeker.amp_client import SqlValue
+from rangeseeker.external.amp_client import AmpClient
+from rangeseeker.external.amp_client import SqlValue
 
 MIN_DATA_POINTS = 2
 
@@ -141,10 +141,7 @@ class UniswapDataClient:
         timestampCutoff = cutoffTime.strftime('%Y-%m-%d %H:%M:%S')
         secondsInYear = 365 * 24 * 3600
         secondsInPeriod = hoursBack * 3600
-
-        # Ensure poolAddress is treated as binary literal if it's a hex string
         poolAddressLiteral = f"X'{poolAddress[2:]}'" if poolAddress.startswith('0x') else f"'{poolAddress}'"
-
         sql = f"""
         WITH prices AS (
             SELECT

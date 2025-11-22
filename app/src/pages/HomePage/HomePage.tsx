@@ -113,47 +113,49 @@ export function HomePage(): React.ReactElement {
   };
 
   return (
-    <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
-      <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
-        <Text variant='header1' alignment={TextAlignment.Center}>Range Seeker</Text>
-        <Text variant='large' alignment={TextAlignment.Center}>Agentic Liquidity Provision</Text>
+    <React.Fragment>
+      <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
+        <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
+          <Text variant='header1' alignment={TextAlignment.Center}>Range Seeker</Text>
+          <Text variant='large' alignment={TextAlignment.Center}>Agentic Liquidity Provision</Text>
 
-        <Box width='100%' height='400px'>
-          <PriceChart />
-        </Box>
+          <Box width='100%' height='400px'>
+            <PriceChart />
+          </Box>
 
-        <Stack direction={Direction.Horizontal} shouldAddGutters={true} isFullWidth={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center}>
-          <GlassCard width='200px'>
-            <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} padding={PaddingSize.Wide}>
-              <Text variant='note'>Current Price</Text>
-              <Text variant='header2'>$3,427</Text>
-            </Stack>
-          </GlassCard>
-          <GlassCard width='200px'>
-            <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} padding={PaddingSize.Wide}>
-              <Text variant='note'>24h Volatility</Text>
-              <Text variant='header2'>4.1%</Text>
-            </Stack>
-          </GlassCard>
-          <GlassCard width='200px'>
-            <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} padding={PaddingSize.Wide}>
-              <Text variant='note'>Fees Earned (24h)</Text>
-              <Text variant='header2'>$124.50</Text>
-            </Stack>
-          </GlassCard>
+          <Stack direction={Direction.Horizontal} shouldAddGutters={true} isFullWidth={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center}>
+            <GlassCard width='200px'>
+              <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} padding={PaddingSize.Wide}>
+                <Text variant='note'>Current Price</Text>
+                <Text variant='header2'>$3,427</Text>
+              </Stack>
+            </GlassCard>
+            <GlassCard width='200px'>
+              <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} padding={PaddingSize.Wide}>
+                <Text variant='note'>24h Volatility</Text>
+                <Text variant='header2'>4.1%</Text>
+              </Stack>
+            </GlassCard>
+            <GlassCard width='200px'>
+              <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} padding={PaddingSize.Wide}>
+                <Text variant='note'>Fees Earned (24h)</Text>
+                <Text variant='header2'>$124.50</Text>
+              </Stack>
+            </GlassCard>
+          </Stack>
+
+          <Spacing variant={PaddingSize.Wide} />
+
+          {!isWeb3AccountConnected ? (
+            <Button variant='primary' text='Connect Wallet' onClicked={onConnectWalletClicked} />
+          ) : !isWeb3AccountLoggedIn ? (
+            <Button variant='primary' text='Sign to log in' onClicked={onLoginClicked} isLoading={isLoggingIn} />
+          ) : isLoggingIn ? (
+            <Text>Please check your wallet to sign the login message</Text>
+          ) : (
+            <Button variant='primary' text='Go to Agents' onClicked={() => navigator.navigateTo('/agents')} />
+          )}
         </Stack>
-
-        <Spacing variant={PaddingSize.Wide} />
-
-        {!isWeb3AccountConnected ? (
-          <Button variant='primary' text='Connect Wallet' onClicked={onConnectWalletClicked} />
-        ) : !isWeb3AccountLoggedIn ? (
-          <Button variant='primary' text='Sign to log in' onClicked={onLoginClicked} isLoading={isLoggingIn} />
-        ) : isLoggingIn ? (
-          <Text>Please check your wallet to sign the login message</Text>
-        ) : (
-          <Button variant='primary' text='Go to Agents' onClicked={() => navigator.navigateTo('/agents')} />
-        )}
       </Stack>
       <ProviderDialog
         isOpen={isProviderDialogOpen}
@@ -161,6 +163,6 @@ export function HomePage(): React.ReactElement {
         onProviderSelected={onProviderSelected}
         onClose={(): void => setIsProviderDialogOpen(false)}
       />
-    </Stack>
+    </React.Fragment>
   );
 }

@@ -3,12 +3,13 @@ import os
 from core.requester import Requester
 from core.store.database import Database
 
-from rangeseeker.amp_client import AmpClient
 from rangeseeker.app_manager import AppManager
-from rangeseeker.gemini_llm import GeminiLLM
+from rangeseeker.external.amp_client import AmpClient
+from rangeseeker.external.coinbase_cdp_client import CoinbaseCdpClient
+from rangeseeker.external.gemini_llm import GeminiLLM
+from rangeseeker.external.uniswap_data_client import UniswapDataClient
 from rangeseeker.strategy_manager import StrategyManager
 from rangeseeker.strategy_parser import StrategyParser
-from rangeseeker.uniswap_data_client import UniswapDataClient
 from rangeseeker.user_manager import UserManager
 
 DB_HOST = os.environ['DB_HOST']
@@ -35,7 +36,20 @@ def create_app_manager() -> AppManager:
     uniswapClient = UniswapDataClient(ampClient=ampClient)
     geminiLlm = GeminiLLM(apiKey=geminiApiKey, requester=requester)
     parser = StrategyParser(llm=geminiLlm)
-    userManager = UserManager(database=database)
+    coinbaseCdpClient = CoinbaseCdpClient(
+        requester=requester,
+        walletSecret=os.environ['CDP_WALLET_SECRET'],
+        apiKeyName=os.environ['CDP_API_KEY_NAME'],
+        apiKeyPrivateKey=os.environ['CDP_API_KEY_PRIVATE_KEY'],
+    )
+    userManager = UserManager(
+        database=database,
+        coinbaseCdpClient=coinbaseCdpClient,
+    )
     strategyManager = StrategyManager(database=database, uniswapClient=uniswapClient, parser=parser)
-    appManager = AppManager(database=database, userManager=userManager, strategyManager=strategyManager)
+    appManager = AppManager(
+        database=database,
+        userManager=userManager,
+        strategyManager=strategyManager,
+    )
     return appManager

@@ -3,10 +3,13 @@ name = "rangeseeker-api"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "kiba-core[core-api,database-psql,queue-sqs,requester,storage,web3]==0.5.3.dev42",
     "alembic>=1.13.0",
     "siwe>=4.4.0",
     "adbc-driver-flightsql>=1.0.0",
+    "cryptography>=46.0.3",
+    "pyjwt>=2.10.1",
+    "kiba-core[core-api,database-psql,queue-sqs,requester,storage,web3]==0.5.3.dev42",
+    "pyarrow>=22.0.0",
 ]
 
 [dependency-groups]
