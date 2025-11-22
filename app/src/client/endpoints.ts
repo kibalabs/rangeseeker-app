@@ -237,3 +237,17 @@ export class CreateAgentResponse extends ResponseData {
     );
   };
 }
+
+export class ListAgentsResponse extends ResponseData {
+  public constructor(
+    readonly agents: Resources.Agent[],
+  ) {
+    super();
+  }
+
+  public static fromObject = (obj: RawObject): ListAgentsResponse => {
+    return new ListAgentsResponse(
+      (obj.agents as RawObject[]).map((agent: RawObject): Resources.Agent => Resources.Agent.fromObject(agent)),
+    );
+  };
+}

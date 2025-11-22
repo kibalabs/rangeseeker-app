@@ -38,9 +38,9 @@ def create_app_manager() -> AppManager:
     parser = StrategyParser(llm=geminiLlm)
     coinbaseCdpClient = CoinbaseCdpClient(
         requester=requester,
-        walletSecret=os.environ['COINBASE_CDP_WALLET_SECRET'],
-        apiKeyName=os.environ['COINBASE_CDP_API_KEY_NAME'],
-        apiKeyPrivateKey=os.environ['COINBASE_CDP_API_KEY_PRIVATE_KEY'],
+        walletSecret=os.environ['CDP_WALLET_SECRET'],
+        apiKeyName=os.environ['CDP_API_KEY_NAME'],
+        apiKeyPrivateKey=os.environ['CDP_API_KEY_PRIVATE_KEY'],
     )
     userManager = UserManager(
         database=database,

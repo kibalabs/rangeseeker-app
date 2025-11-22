@@ -13,7 +13,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.routing import Mount
 
 from rangeseeker.api.v1_api import create_v1_routes
-from rangeseeker.create_user_manager import create_app_manager
+from rangeseeker.create_app_manager import create_app_manager
 
 name = os.environ.get('NAME', 'rangeseeker-api')
 version = os.environ.get('VERSION', 'local')

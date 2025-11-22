@@ -75,4 +75,11 @@ export class RangeSeekerClient extends ServiceClient {
     const response = await this.makeRequest(method, path, request, Endpoints.CreateAgentResponse, this.getHeaders(authToken));
     return response.agent;
   };
+
+  public listAgents = async (authToken: string): Promise<Resources.Agent[]> => {
+    const method = RestMethod.GET;
+    const path = 'v1/agents';
+    const response = await this.makeRequest(method, path, undefined, Endpoints.ListAgentsResponse, this.getHeaders(authToken));
+    return response.agents;
+  };
 }
