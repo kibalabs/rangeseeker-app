@@ -81,20 +81,37 @@ class AppManager(Authorizer):
         return await self.strategyManager.parse_strategy(description=description)
 
     async def get_pool_data(self, chainId: int, token0Address: str, token1Address: str) -> PoolData:
-        poolAddress = '0xd0b53D9277642d899DF5C87A3966A349A798F224'
+        token0Address = chain_util.normalize_address(token0Address)
+        token1Address = chain_util.normalize_address(token1Address)
+        pool = await self.strategyManager.uniswapClient.get_pool(token0Address=token0Address, token1Address=token1Address)
+        poolAddress = pool.address
+
         currentPrice = await self.strategyManager.uniswapClient.get_current_price(poolAddress=poolAddress)
-        volatility = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=24)
+        volatilityData24h = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=24)
+        volatilityData7d = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=168)
+        feeGrowth7d = await self.strategyManager.uniswapClient.get_pool_fee_growth(poolAddress=poolAddress, hoursBack=168)
+        feeRate = pool.fee / 1_000_000.0
+
         return PoolData(
             chainId=chainId,
             token0Address=token0Address,
             token1Address=token1Address,
             poolAddress=poolAddress,
             currentPrice=currentPrice,
-            volatility24h=volatility,
+            volatility24h=volatilityData24h.realized,
+            volatility7d=volatilityData7d.realized,
+            volatilityAnnualized=volatilityData24h.annualized,
+            volatilityRealized=volatilityData24h.realized,
+            feeGrowth7d=feeGrowth7d,
+            feeRate=feeRate,
         )
 
     async def get_pool_historical_data(self, chainId: int, token0Address: str, token1Address: str, hoursBack: int) -> PoolHistoricalData:
-        poolAddress = '0xd0b53D9277642d899DF5C87A3966A349A798F224'
+        token0Address = chain_util.normalize_address(token0Address)
+        token1Address = chain_util.normalize_address(token1Address)
+        pool = await self.strategyManager.uniswapClient.get_pool(token0Address=token0Address, token1Address=token1Address)
+        poolAddress = pool.address
+
         swaps = await self.strategyManager.uniswapClient.get_pool_swaps(poolAddress=poolAddress, hoursBack=hoursBack)
         pricePoints = []
         for swap in swaps:

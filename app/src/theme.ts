@@ -28,10 +28,9 @@ export const buildRangeSeekerTheme = (): ITheme => {
 
   const theme = buildTheme({
     colors: {
-      background: '#000',
-      brandPrimary: '#2EE4E3',
-      brandSecondary: '#BE41EC',
-      brandTertiary: '#12CE17',
+      background: '#141414',
+      brandPrimary: '#CCF6F9',
+      brandSecondary: '#C4F2C8',
     },
     fonts: {
       main: {
