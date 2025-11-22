@@ -23,7 +23,7 @@ export class RangeSeekerClient extends ServiceClient {
     return response.user;
   };
 
-  public createUser = async (address: string, username: string, authToken: string, referralCode: string | null): Promise<Resources.User> => {
+  public createUser = async (address: string, username: string, authToken: string): Promise<Resources.User> => {
     const method = RestMethod.POST;
     const path = 'v1/users';
     const request = new Endpoints.CreateUserRequest(address, username);

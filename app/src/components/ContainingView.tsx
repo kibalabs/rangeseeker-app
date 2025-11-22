@@ -161,7 +161,7 @@ export function ContainingView(props: IContainingViewProps): React.ReactElement 
         navigator.navigateTo('/agents');
       }
     }
-  }, [navigator, location.pathname, isWeb3AccountConnecting, isWeb3AccountLoggedIn, isAuthenticated, loginWithWallet, loginError, isRestoringDestination, restoreIntendedDestination, storeIntendedDestination]);
+  }, [navigator, location.pathname, location.search, isWeb3AccountConnecting, isWeb3AccountLoggedIn, isAuthenticated, loginWithWallet, loginError, needsRegistration, isRestoringDestination, restoreIntendedDestination, storeIntendedDestination]);
 
   const onMenuClicked = (): void => {
     setIsMenuOpen(!isMenuOpen);

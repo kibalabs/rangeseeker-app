@@ -6,13 +6,11 @@ import { Alignment, Button, Checkbox, Direction, IconButton, KibaIcon, PaddingSi
 import { useWeb3Account } from '@kibalabs/web3-react';
 
 import { useAuth } from '../AuthContext';
-import { useGlobals } from '../GlobalsContext';
 
 export function RegisterPage(): React.ReactElement {
   const navigator = useNavigator();
   const { createUser, isWeb3AccountLoggedIn, isAuthenticated, logout } = useAuth();
   const account = useWeb3Account();
-  const { localStorageClient } = useGlobals();
   const [username, setUsername] = useState<string>('');
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +41,7 @@ export function RegisterPage(): React.ReactElement {
     setError(null);
     try {
       const finalUsername = username || `user_${account.address.substring(2, 15).toLowerCase()}`;
-      await createUser(finalUsername, null);
+      await createUser(finalUsername);
       navigator.navigateTo('/');
     } catch (caughtError) {
       console.error('Failed to register:', caughtError);
@@ -120,7 +118,7 @@ export function RegisterPage(): React.ReactElement {
           isLoading={isRegistering}
         />
         <Spacing variant={PaddingSize.Default} />
-        <Text variant='note'>Disclaimer: I understand that Range Seeker uses AI agents to autonomously provide liquidity in DeFi protocols on my behalf. By using the platform, I authorize the AI agent to execute transactions for me. I acknowledge that DeFi carries inherent risks, including loss of funds due to smart contract vulnerabilities, market volatility, or system errors. By proceeding, I accept full responsibility for the AI agent's actions and agree that the platform's creators are not liable for any resulting losses.</Text>
+        <Text variant='note'>Disclaimer: I understand that Range Seeker uses AI agents to autonomously provide liquidity in DeFi protocols on my behalf. By using the platform, I authorize the AI agent to execute transactions for me. I acknowledge that DeFi carries inherent risks, including loss of funds due to smart contract vulnerabilities, market volatility, or system errors. By proceeding, I accept full responsibility for the AI agent&apos;s actions and agree that the platform&apos;s creators are not liable for any resulting losses.</Text>
       </Stack>
     </Stack>
   );
