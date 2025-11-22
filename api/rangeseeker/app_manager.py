@@ -1,20 +1,31 @@
 import base64
+import datetime
+import math
+from typing import cast
 
 from core.exceptions import ForbiddenException
 from core.exceptions import NotFoundException
 from core.exceptions import UnauthorizedException
 from core.store.database import Database
 from core.util import chain_util
+from core.util.typing_util import JsonObject
 from eth_account.messages import encode_defunct
 from siwe import SiweMessage  # type: ignore[import-untyped]
 from web3 import Web3
 
+from rangeseeker import constants
 from rangeseeker.api.authorizer import Authorizer
 from rangeseeker.api.v1_resources import AuthToken
 from rangeseeker.api.v1_resources import PoolData
 from rangeseeker.api.v1_resources import PoolHistoricalData
 from rangeseeker.api.v1_resources import PricePoint
+from rangeseeker.external.pyth_client import PythClient
 from rangeseeker.model import Agent
+from rangeseeker.model import Asset
+from rangeseeker.model import AssetBalance
+from rangeseeker.model import AssetPrice
+from rangeseeker.model import PreviewDeposit
+from rangeseeker.model import Strategy
 from rangeseeker.model import User
 from rangeseeker.model import UserWallet
 from rangeseeker.model import Wallet
@@ -24,6 +35,11 @@ from rangeseeker.user_manager import UserManager
 
 w3 = Web3()
 
+PYTH_ETH_USD_PRICE_ID = '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace'
+PYTH_USDC_USD_PRICE_ID = '0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a'
+MIN_WETH_DIFF = 0.0001
+MIN_USDC_DIFF = 0.01
+
 
 class AppManager(Authorizer):
     def __init__(
@@ -31,10 +47,12 @@ class AppManager(Authorizer):
         database: Database,
         userManager: UserManager,
         strategyManager: StrategyManager,
+        pythClient: PythClient,
     ) -> None:
         self.database = database
         self.userManager = userManager
         self.strategyManager = strategyManager
+        self.pythClient = pythClient
         self._signatureSignerMap: dict[str, str] = {}
 
     async def _retrieve_signature_signer_address(self, signatureString: str) -> str:
@@ -90,18 +108,55 @@ class AppManager(Authorizer):
     async def get_agent(self, userId: str, agentId: str) -> Agent:
         return await self.userManager.get_agent(userId=userId, agentId=agentId)
 
+    async def get_strategy(self, userId: str, strategyId: str) -> Strategy:
+        strategy = await self.strategyManager.get_strategy(strategyId=strategyId)
+        if strategy.userId != userId:
+            raise ForbiddenException('INCORRECT_USER')
+        return strategy
+
     async def create_agent(self, userId: str, name: str, emoji: str, strategyName: str, strategyDescription: str, strategyDefinition: StrategyDefinition) -> Agent:
         strategy = await self.strategyManager.create_strategy(userId=userId, name=strategyName, description=strategyDescription, strategyDefinition=strategyDefinition)
         return await self.userManager.create_agent(userId=userId, name=name, emoji=emoji, strategyId=strategy.strategyId)
 
     async def get_agent_wallet(self, userId: str, agentId: str) -> Wallet:
         agentWallet = await self.userManager.get_agent_wallet(userId=userId, agentId=agentId)
-        # TODO(krishan711): add asset balances
+        assetBalances = await self.get_wallet_balances(chainId=8453, walletAddress=agentWallet.walletAddress)
         return Wallet(
             walletAddress=agentWallet.walletAddress,
-            assetBalances=[],
+            assetBalances=assetBalances,
             delegatedSmartWallet=agentWallet.delegatedSmartWallet,
         )
+
+    async def get_wallet_balances(self, chainId: int, walletAddress: str) -> list[AssetBalance]:
+        clientBalances = await self.userManager.coinbaseCdpClient.get_wallet_asset_balances(chainId=chainId, walletAddress=walletAddress)
+        prices = await self.pythClient.get_prices(priceIds=[PYTH_ETH_USD_PRICE_ID, PYTH_USDC_USD_PRICE_ID])
+        assetBalances = []
+        for clientBalance in clientBalances:
+            price = 0.0
+            if clientBalance.assetAddress == constants.CHAIN_USDC_MAP[constants.BASE_CHAIN_ID]:
+                price = prices.get(PYTH_USDC_USD_PRICE_ID, 0.0)
+            elif clientBalance.assetAddress == constants.CHAIN_WETH_MAP[constants.BASE_CHAIN_ID]:
+                price = prices.get(PYTH_ETH_USD_PRICE_ID, 0.0)
+            asset = Asset(
+                assetId=clientBalance.assetAddress,
+                createdDate=datetime.datetime.now(tz=datetime.UTC),
+                updatedDate=datetime.datetime.now(tz=datetime.UTC),
+                chainId=chainId,
+                address=clientBalance.assetAddress,
+                name=clientBalance.name,
+                symbol=clientBalance.symbol,
+                decimals=clientBalance.decimals,
+            )
+            assetPrice = AssetPrice(
+                assetPriceId=0,
+                createdDate=datetime.datetime.now(tz=datetime.UTC),
+                updatedDate=datetime.datetime.now(tz=datetime.UTC),
+                assetId=clientBalance.assetAddress,
+                priceUsd=price,
+                date=datetime.datetime.now(tz=datetime.UTC),
+            )
+            assetBalances.append(AssetBalance(asset=asset, assetPrice=assetPrice, balance=clientBalance.balance))
+        return assetBalances
 
     async def parse_strategy(self, description: str) -> StrategyDefinition:
         return await self.strategyManager.parse_strategy(description=description)
@@ -151,4 +206,50 @@ class AppManager(Authorizer):
             token1Address=token1Address,
             poolAddress=poolAddress,
             pricePoints=pricePoints,
+        )
+
+    async def preview_deposit(self, userId: str, agentId: str, token0Amount: float, token1Amount: float) -> PreviewDeposit:
+        agent = await self.get_agent(userId=userId, agentId=agentId)
+        strategy = await self.get_strategy(userId=userId, strategyId=agent.strategyId)
+        prices = await self.pythClient.get_prices(priceIds=[PYTH_ETH_USD_PRICE_ID, PYTH_USDC_USD_PRICE_ID])
+        ethPrice = prices.get(PYTH_ETH_USD_PRICE_ID, 0.0)
+        usdcPrice = prices.get(PYTH_USDC_USD_PRICE_ID, 1.0)
+        if usdcPrice == 0:
+            usdcPrice = 1.0
+        currentPrice = ethPrice / usdcPrice
+        rangePercent = 0.1
+        rules = strategy.rulesJson
+        for rule in rules:
+            if rule.get('type') == 'RANGE_WIDTH':
+                params = cast(JsonObject, rule.get('parameters', {}))
+                rangePercent = float(cast(float, params.get('baseRangePercent', 10))) / 100.0
+                break
+        priceLower = currentPrice * (1 - rangePercent)
+        priceUpper = currentPrice * (1 + rangePercent)
+        sqrtP = math.sqrt(currentPrice)
+        sqrtPl = math.sqrt(priceLower)
+        sqrtPu = math.sqrt(priceUpper)
+        amount0Unit = (1 / sqrtP) - (1 / sqrtPu)
+        amount1Unit = sqrtP - sqrtPl
+        optimalRatio = amount1Unit / amount0Unit  # USDC / WETH
+        totalValueUsd = (token1Amount * usdcPrice) + (token0Amount * ethPrice)
+        xFinal = totalValueUsd / (ethPrice + (optimalRatio * usdcPrice))
+        yFinal = xFinal * optimalRatio
+        wethDiff = xFinal - token0Amount
+        usdcDiff = yFinal - token1Amount
+        swapDescription = ''
+        if wethDiff > MIN_WETH_DIFF:
+            swapDescription = f'Swap {-usdcDiff:.2f} USDC for {wethDiff:.4f} WETH'
+        elif usdcDiff > MIN_USDC_DIFF:
+            swapDescription = f'Swap {-wethDiff:.4f} WETH for {usdcDiff:.2f} USDC'
+        else:
+            swapDescription = 'No swap needed'
+        depositDescription = f'Deposit {xFinal:.4f} WETH and {yFinal:.2f} USDC into pool'
+        return PreviewDeposit(
+            swapDescription=swapDescription,
+            depositDescription=depositDescription,
+            token0Amount=xFinal,
+            token1Amount=yFinal,
+            token0Symbol='WETH',
+            token1Symbol='USDC',
         )

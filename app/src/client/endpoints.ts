@@ -202,6 +202,20 @@ export class ListUserStrategiesResponse extends ResponseData {
   };
 }
 
+export class GetStrategyResponse extends ResponseData {
+  public constructor(
+    readonly strategy: Resources.Strategy,
+  ) {
+    super();
+  }
+
+  public static fromObject = (obj: RawObject): GetStrategyResponse => {
+    return new GetStrategyResponse(
+      Resources.Strategy.fromObject(obj.strategy as RawObject),
+    );
+  };
+}
+
 export class CreateAgentRequest extends RequestData {
   public constructor(
     readonly name: string,
@@ -248,6 +262,124 @@ export class ListAgentsResponse extends ResponseData {
   public static fromObject = (obj: RawObject): ListAgentsResponse => {
     return new ListAgentsResponse(
       (obj.agents as RawObject[]).map((agent: RawObject): Resources.Agent => Resources.Agent.fromObject(agent)),
+    );
+  };
+}
+
+export class GetAgentRequest extends RequestData {
+  public constructor(
+    readonly agentId: string,
+  ) {
+    super();
+  }
+
+  public toObject = (): RawObject => {
+    return {
+      agentId: this.agentId,
+    };
+  };
+}
+
+export class GetAgentResponse extends ResponseData {
+  public constructor(
+    readonly agent: Resources.Agent,
+  ) {
+    super();
+  }
+
+  public static fromObject = (obj: RawObject): GetAgentResponse => {
+    return new GetAgentResponse(
+      Resources.Agent.fromObject(obj.agent as RawObject),
+    );
+  };
+}
+
+export class GetAgentWalletRequest extends RequestData {
+  public constructor(
+    readonly agentId: string,
+  ) {
+    super();
+  }
+
+  public toObject = (): RawObject => {
+    return {
+      agentId: this.agentId,
+    };
+  };
+}
+
+export class GetAgentWalletResponse extends ResponseData {
+  public constructor(
+    readonly wallet: Resources.Wallet,
+  ) {
+    super();
+  }
+
+  public static fromObject = (obj: RawObject): GetAgentWalletResponse => {
+    return new GetAgentWalletResponse(
+      Resources.Wallet.fromObject(obj.wallet as RawObject),
+    );
+  };
+}
+
+export class GetWalletBalancesRequest extends RequestData {
+  public constructor(
+    readonly chainId: number,
+    readonly walletAddress: string,
+  ) {
+    super();
+  }
+
+  public toObject = (): RawObject => {
+    return {
+      chainId: this.chainId,
+      walletAddress: this.walletAddress,
+    };
+  };
+}
+
+export class GetWalletBalancesResponse extends ResponseData {
+  public constructor(
+    readonly balances: Resources.AssetBalance[],
+  ) {
+    super();
+  }
+
+  public static fromObject = (obj: RawObject): GetWalletBalancesResponse => {
+    return new GetWalletBalancesResponse(
+      (obj.balances as RawObject[]).map((balance: RawObject): Resources.AssetBalance => Resources.AssetBalance.fromObject(balance)),
+    );
+  };
+}
+
+export class PreviewDepositRequest extends RequestData {
+  public constructor(
+    readonly agentId: string,
+    readonly token0Amount: number,
+    readonly token1Amount: number,
+  ) {
+    super();
+  }
+
+  public toObject = (): RawObject => {
+    return {
+      agentId: this.agentId,
+      token0Amount: this.token0Amount,
+      token1Amount: this.token1Amount,
+    };
+  };
+}
+
+export class PreviewDepositResponse extends ResponseData {
+  public constructor(
+    readonly preview: Resources.PreviewDeposit,
+  ) {
+    super();
+  }
+
+  public static fromObject = (obj: RawObject): PreviewDepositResponse => {
+    return new PreviewDepositResponse(
+      Resources.PreviewDeposit.fromObject(obj.preview as RawObject),
     );
   };
 }

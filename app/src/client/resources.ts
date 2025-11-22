@@ -134,3 +134,105 @@ export class Strategy {
     );
   };
 }
+
+export class Asset {
+  public constructor(
+    readonly assetId: string,
+    readonly chainId: number,
+    readonly address: string,
+    readonly name: string,
+    readonly symbol: string,
+    readonly decimals: number,
+    readonly createdDate: Date,
+    readonly updatedDate: Date,
+  ) { }
+
+  public static fromObject = (obj: RawObject): Asset => {
+    return new Asset(
+      String(obj.assetId),
+      Number(obj.chainId),
+      String(obj.address),
+      String(obj.name),
+      String(obj.symbol),
+      Number(obj.decimals),
+      dateFromString(String(obj.createdDate)),
+      dateFromString(String(obj.updatedDate)),
+    );
+  };
+}
+
+export class AssetPrice {
+  public constructor(
+    readonly assetPriceId: number,
+    readonly assetId: string,
+    readonly priceUsd: number,
+    readonly date: Date,
+    readonly createdDate: Date,
+    readonly updatedDate: Date,
+  ) { }
+
+  public static fromObject = (obj: RawObject): AssetPrice => {
+    return new AssetPrice(
+      Number(obj.assetPriceId),
+      String(obj.assetId),
+      Number(obj.priceUsd),
+      dateFromString(String(obj.date)),
+      dateFromString(String(obj.createdDate)),
+      dateFromString(String(obj.updatedDate)),
+    );
+  };
+}
+
+export class AssetBalance {
+  public constructor(
+    readonly asset: Asset,
+    readonly assetPrice: AssetPrice,
+    readonly balance: number,
+  ) { }
+
+  public static fromObject = (obj: RawObject): AssetBalance => {
+    return new AssetBalance(
+      Asset.fromObject(obj.asset as RawObject),
+      AssetPrice.fromObject(obj.assetPrice as RawObject),
+      Number(obj.balance),
+    );
+  };
+}
+
+export class Wallet {
+  public constructor(
+    readonly walletAddress: string,
+    readonly assetBalances: AssetBalance[],
+    readonly delegatedSmartWallet: string | null,
+  ) { }
+
+  public static fromObject = (obj: RawObject): Wallet => {
+    return new Wallet(
+      String(obj.walletAddress),
+      (obj.assetBalances as RawObject[]).map((balance: RawObject): AssetBalance => AssetBalance.fromObject(balance)),
+      obj.delegatedSmartWallet ? String(obj.delegatedSmartWallet) : null,
+    );
+  };
+}
+
+export class PreviewDeposit {
+  public constructor(
+    readonly swapDescription: string,
+    readonly depositDescription: string,
+    readonly token0Amount: number,
+    readonly token1Amount: number,
+    readonly token0Symbol: string,
+    readonly token1Symbol: string,
+  ) { }
+
+  public static fromObject = (obj: RawObject): PreviewDeposit => {
+    return new PreviewDeposit(
+      String(obj.swapDescription),
+      String(obj.depositDescription),
+      Number(obj.token0Amount),
+      Number(obj.token1Amount),
+      String(obj.token0Symbol),
+      String(obj.token1Symbol),
+    );
+  };
+}

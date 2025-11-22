@@ -82,3 +82,12 @@ class Wallet(BaseModel):
     walletAddress: str
     assetBalances: list[AssetBalance]
     delegatedSmartWallet: str | None
+
+
+class PreviewDeposit(BaseModel):
+    swapDescription: str
+    depositDescription: str
+    token0Amount: float
+    token1Amount: float
+    token0Symbol: str
+    token1Symbol: str

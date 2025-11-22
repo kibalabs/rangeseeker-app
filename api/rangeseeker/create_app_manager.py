@@ -7,6 +7,7 @@ from rangeseeker.app_manager import AppManager
 from rangeseeker.external.amp_client import AmpClient
 from rangeseeker.external.coinbase_cdp_client import CoinbaseCdpClient
 from rangeseeker.external.gemini_llm import GeminiLLM
+from rangeseeker.external.pyth_client import PythClient
 from rangeseeker.external.uniswap_data_client import UniswapDataClient
 from rangeseeker.strategy_manager import StrategyManager
 from rangeseeker.strategy_parser import StrategyParser
@@ -42,6 +43,7 @@ def create_app_manager() -> AppManager:
         apiKeyName=os.environ['CDP_API_KEY_NAME'],
         apiKeyPrivateKey=os.environ['CDP_API_KEY_PRIVATE_KEY'],
     )
+    pythClient = PythClient(requester=requester)
     userManager = UserManager(
         database=database,
         coinbaseCdpClient=coinbaseCdpClient,
@@ -51,5 +53,6 @@ def create_app_manager() -> AppManager:
         database=database,
         userManager=userManager,
         strategyManager=strategyManager,
+        pythClient=pythClient,
     )
     return appManager

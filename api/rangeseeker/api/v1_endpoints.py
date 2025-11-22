@@ -59,6 +59,10 @@ class CreateStrategyResponse(BaseModel):
     strategy: resources.Strategy
 
 
+class GetStrategyRequest(BaseModel):
+    strategyId: str
+
+
 class GetStrategyResponse(BaseModel):
     strategy: resources.Strategy
 
@@ -101,3 +105,22 @@ class GetAgentWalletRequest(BaseModel):
 
 class GetAgentWalletResponse(BaseModel):
     wallet: resources.Wallet
+
+
+class GetWalletBalancesRequest(BaseModel):
+    chainId: int
+    walletAddress: str
+
+
+class GetWalletBalancesResponse(BaseModel):
+    balances: list[resources.AssetBalance]
+
+
+class PreviewDepositRequest(BaseModel):
+    agentId: str
+    token0Amount: float
+    token1Amount: float
+
+
+class PreviewDepositResponse(BaseModel):
+    preview: resources.PreviewDeposit

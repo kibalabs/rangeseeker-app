@@ -46,9 +46,9 @@ const globals: IGlobals = {
 const routes: IRoute<IGlobals>[] = [
   { path: '/account', page: AccountPage },
   { path: '/agents', page: AgentsPage },
+  { path: '/agents/:agentId', page: DashboardPage },
   { path: '/create', page: StrategyPage },
   { path: '/deploy', page: DeployPage },
-  { path: '/dashboard', page: DashboardPage },
   { path: '/register', page: RegisterPage },
   { path: '/', page: HomePage },
 ];

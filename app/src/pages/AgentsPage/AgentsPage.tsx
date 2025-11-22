@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { useInitialization, useNavigator } from '@kibalabs/core-react';
-import { Alignment, Direction, PaddingSize, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
+import { Alignment, Direction, LoadingSpinner, PaddingSize, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
 import styled from 'styled-components';
 
 import { useAuth } from '../../AuthContext';
@@ -100,8 +100,8 @@ export function AgentsPage(): React.ReactElement {
     init();
   });
 
-  const onAgentClicked = () => {
-    navigator.navigateTo('/dashboard');
+  const onAgentClicked = (agentId: string) => {
+    navigator.navigateTo(`/agents/${agentId}`);
   };
 
   const onCreateClicked = () => {
@@ -115,46 +115,51 @@ export function AgentsPage(): React.ReactElement {
         <Text variant='note'>Manage your autonomous liquidity agents.</Text>
         <Spacing variant={PaddingSize.Wide} />
         <Stack direction={Direction.Horizontal} isFullWidth={true} shouldAddGutters={true} childAlignment={Alignment.Start} contentAlignment={Alignment.Start} shouldWrapItems={true}>
-          {agents?.map((agent: Agent): React.ReactElement => (
-            <ClickableBox key={agent.agentId} onClick={onAgentClicked}>
-              <AgentCard>
-                <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center}>
-                  <Stack direction={Direction.Horizontal} isFullWidth={true} contentAlignment={Alignment.End}>
-                    <StatusBadge>Active</StatusBadge>
-                  </Stack>
-                  <IconBox>{agent.emoji}</IconBox>
-                  <Text variant='header3'>{agent.name}</Text>
-                  <Text variant='note' alignment={TextAlignment.Center}>Strategy</Text>
-                  <Spacing variant={PaddingSize.Default} />
-                  <Stack direction={Direction.Horizontal} shouldAddGutters={true}>
-                    <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                      <Text variant='note'>TVL</Text>
-                      <Text variant='bold'>$0</Text>
+          {!agents ? (
+            <Stack direction={Direction.Vertical} isFullWidth={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} padding={PaddingSize.Wide3}>
+              <LoadingSpinner />
+            </Stack>
+          ) : (
+            <React.Fragment>
+              {agents.map((agent: Agent): React.ReactElement => (
+                <ClickableBox key={agent.agentId} onClick={() => onAgentClicked(agent.agentId)}>
+                  <AgentCard>
+                    <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center}>
+                      <Stack direction={Direction.Horizontal} isFullWidth={true} contentAlignment={Alignment.End}>
+                        <StatusBadge>Active</StatusBadge>
+                      </Stack>
+                      <IconBox>{agent.emoji}</IconBox>
+                      <Text variant='header3'>{agent.name}</Text>
+                      <Text variant='note' alignment={TextAlignment.Center}>Strategy</Text>
+                      <Spacing variant={PaddingSize.Default} />
+                      <Stack direction={Direction.Horizontal} shouldAddGutters={true}>
+                        <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                          <Text variant='note'>TVL</Text>
+                          <Text variant='bold'>$0</Text>
+                        </Stack>
+                        <Divider />
+                        <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                          <Text variant='note'>APY</Text>
+                          <Text variant='bold'><ColoredText color='#2EE4E3'>0%</ColoredText></Text>
+                        </Stack>
+                      </Stack>
                     </Stack>
-                    <Divider />
-                    <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                      <Text variant='note'>APY</Text>
-                      <Text variant='bold'><ColoredText color='#2EE4E3'>0%</ColoredText></Text>
-                    </Stack>
+                  </AgentCard>
+                </ClickableBox>
+              ))}
+              <ClickableBox onClick={onCreateClicked}>
+                <CreateCard>
+                  <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} isFullHeight={true} minHeight='250px'>
+                    <CreateIconBox>
+                      +
+                    </CreateIconBox>
+                    <Text variant='header3'><ColoredText color='rgba(255,255,255,0.7)'>Create New Agent</ColoredText></Text>
+                    <Text variant='note' alignment={TextAlignment.Center}>Deploy a new strategy</Text>
                   </Stack>
-                </Stack>
-              </AgentCard>
-            </ClickableBox>
-          ))}
-
-          {/* Create New Agent Card */}
-          <ClickableBox onClick={onCreateClicked}>
-            <CreateCard>
-              <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} isFullHeight={true} minHeight='250px'>
-                <CreateIconBox>
-                  +
-                </CreateIconBox>
-                <Text variant='header3'><ColoredText color='rgba(255,255,255,0.7)'>Create New Agent</ColoredText></Text>
-                <Text variant='note' alignment={TextAlignment.Center}>Deploy a new strategy</Text>
-              </Stack>
-            </CreateCard>
-          </ClickableBox>
-
+                </CreateCard>
+              </ClickableBox>
+            </React.Fragment>
+          )}
         </Stack>
       </Stack>
     </Stack>

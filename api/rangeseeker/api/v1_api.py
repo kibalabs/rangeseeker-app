@@ -65,11 +65,33 @@ def create_v1_routes(appManager: AppManager) -> list[Route]:
         agent = await appManager.get_agent(userId=typing.cast(BasicAuthentication, request.authBasic).username, agentId=request.data.agentId)
         return endpoints.GetAgentResponse(agent=resources.Agent.model_validate(agent.model_dump()))
 
+    @json_route(requestType=endpoints.GetStrategyRequest, responseType=endpoints.GetStrategyResponse)
+    @authorize_signature(authorizer=appManager)
+    async def get_strategy(request: KibaApiRequest[endpoints.GetStrategyRequest]) -> endpoints.GetStrategyResponse:
+        strategy = await appManager.get_strategy(userId=typing.cast(BasicAuthentication, request.authBasic).username, strategyId=request.data.strategyId)
+        return endpoints.GetStrategyResponse(strategy=resources.Strategy.model_validate(strategy.model_dump()))
+
     @json_route(requestType=endpoints.GetAgentWalletRequest, responseType=endpoints.GetAgentWalletResponse)
     @authorize_signature(authorizer=appManager)
     async def get_agent_wallet(request: KibaApiRequest[endpoints.GetAgentWalletRequest]) -> endpoints.GetAgentWalletResponse:
         wallet = await appManager.get_agent_wallet(userId=typing.cast(BasicAuthentication, request.authBasic).username, agentId=request.data.agentId)
         return endpoints.GetAgentWalletResponse(wallet=resources.Wallet.model_validate(wallet.model_dump()))
+
+    @json_route(requestType=endpoints.GetWalletBalancesRequest, responseType=endpoints.GetWalletBalancesResponse)
+    async def get_wallet_balances(request: KibaApiRequest[endpoints.GetWalletBalancesRequest]) -> endpoints.GetWalletBalancesResponse:
+        balances = await appManager.get_wallet_balances(chainId=request.data.chainId, walletAddress=request.data.walletAddress)
+        return endpoints.GetWalletBalancesResponse(balances=[resources.AssetBalance.model_validate(balance.model_dump()) for balance in balances])
+
+    @json_route(requestType=endpoints.PreviewDepositRequest, responseType=endpoints.PreviewDepositResponse)
+    @authorize_signature(authorizer=appManager)
+    async def preview_deposit(request: KibaApiRequest[endpoints.PreviewDepositRequest]) -> endpoints.PreviewDepositResponse:
+        preview = await appManager.preview_deposit(
+            userId=typing.cast(BasicAuthentication, request.authBasic).username,
+            agentId=request.data.agentId,
+            token0Amount=request.data.token0Amount,
+            token1Amount=request.data.token1Amount,
+        )
+        return endpoints.PreviewDepositResponse(preview=resources.PreviewDeposit.model_validate(preview.model_dump()))
 
     return [
         Route('/users/login-with-wallet', user_login_with_wallet_address, methods=['POST']),
@@ -80,5 +102,8 @@ def create_v1_routes(appManager: AppManager) -> list[Route]:
         Route('/agents', list_agents, methods=['GET']),
         Route('/agents', create_agent, methods=['POST']),
         Route('/agents/{agentId}', get_agent, methods=['GET']),
+        Route('/strategies/{strategyId}', get_strategy, methods=['GET']),
         Route('/agents/{agentId}/wallet', get_agent_wallet, methods=['GET']),
+        Route('/wallet-balances', get_wallet_balances, methods=['GET']),
+        Route('/agents/preview-deposit', preview_deposit, methods=['POST']),
     ]
