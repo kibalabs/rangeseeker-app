@@ -55,7 +55,7 @@ def create_v1_routes(appManager: AppManager) -> list[Route]:
             emoji=request.data.emoji,
             strategyName=request.data.strategyName,
             strategyDescription=request.data.strategyDescription,
-            strategyDefinition=ParserStrategyDefinition.model_validate(request.data.strategyDefinition.model_dump())
+            strategyDefinition=ParserStrategyDefinition.model_validate(request.data.strategyDefinition.model_dump()),
         )
         return endpoints.CreateAgentResponse(agent=resources.Agent.model_validate(agent.model_dump()))
 
