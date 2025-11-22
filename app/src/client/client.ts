@@ -1,33 +1,33 @@
-import { Requester } from '@kibalabs/core';
+import { RestMethod, ServiceClient } from '@kibalabs/core';
 
-import { User } from './resources';
+import * as Endpoints from './endpoints';
+import * as Resources from './resources';
 
-export class RangeSeekerClient {
-  protected requester: Requester;
-  protected baseUrl: string;
-
-  constructor(requester: Requester, baseUrl: string) {
-    this.requester = requester;
-    this.baseUrl = baseUrl;
-  }
-
+export class RangeSeekerClient extends ServiceClient {
   // eslint-disable-next-line class-methods-use-this
-  public async loginWithWallet(address: string, _signature: string): Promise<User> {
-    // TODO: Implement actual API call
-    return Promise.resolve({
-      userId: 'user-1',
-      username: 'mock-user',
-      address,
-    });
-  }
+  private getHeaders = (authToken: string | null = null): Record<string, string> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (authToken) {
+      headers.Authorization = `Signature ${authToken}`;
+    }
+    return headers;
+  };
 
-  // eslint-disable-next-line class-methods-use-this
-  public async createUser(address: string, username: string, _signature: string, _referralCode: string | null): Promise<User> {
-    // TODO: Implement actual API call
-    return Promise.resolve({
-      userId: 'user-1',
-      username,
-      address,
-    });
-  }
+  public loginWithWallet = async (address: string, authToken: string): Promise<Resources.User> => {
+    const method = RestMethod.POST;
+    const path = 'v1/users/login-with-wallet';
+    const request = new Endpoints.LoginWithWalletRequest(address);
+    const response = await this.makeRequest(method, path, request, Endpoints.LoginWithWalletResponse, this.getHeaders(authToken));
+    return response.user;
+  };
+
+  public createUser = async (address: string, username: string, authToken: string): Promise<Resources.User> => {
+    const method = RestMethod.POST;
+    const path = 'v1/users';
+    const request = new Endpoints.CreateUserRequest(address, username);
+    const response = await this.makeRequest(method, path, request, Endpoints.CreateUserResponse, this.getHeaders(authToken));
+    return response.user;
+  };
 }

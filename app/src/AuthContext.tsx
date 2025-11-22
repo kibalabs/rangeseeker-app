@@ -16,7 +16,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   loginWithWallet: () => Promise<User>;
-  createUser: (username: string, referralCode: string | null) => Promise<User>;
+  createUser: (username: string) => Promise<User>;
   logout: () => void;
 }
 
@@ -70,14 +70,14 @@ export function AuthProvider(props: AuthProviderProps): React.ReactElement {
     }
   }, [rangeSeekerClient, authToken, walletAddress, logout]);
 
-  const createUser = React.useCallback(async (username: string, referralCode: string | null): Promise<User> => {
+  const createUser = React.useCallback(async (username: string): Promise<User> => {
     if (!authToken) {
       throw new KibaException('No authToken available');
     }
     if (!walletAddress) {
       throw new KibaException('No walletAddress available');
     }
-    const newUser = await rangeSeekerClient.createUser(walletAddress, username, authToken, referralCode);
+    const newUser = await rangeSeekerClient.createUser(walletAddress, username, authToken);
     setUser(newUser);
     return newUser;
   }, [rangeSeekerClient, authToken, walletAddress]);

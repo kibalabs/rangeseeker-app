@@ -4,6 +4,8 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "kiba-core[core-api,database-psql,queue-sqs,requester,storage,web3]==0.5.3.dev42",
+    "alembic>=1.13.0",
+    "siwe>=4.4.0",
 ]
 
 [dependency-groups]
