@@ -4,11 +4,13 @@ import { IRoute, Router, SubRouter } from '@kibalabs/core-react';
 import { KibaApp } from '@kibalabs/ui-react';
 
 import { HomePage } from './pages/HomePage';
+import { StrategyPage } from './pages/StrategyPage';
 import { buildRangeSeekerTheme } from './theme';
 
 const theme = buildRangeSeekerTheme();
 
 const routes: IRoute<void>[] = [
+  { path: '/create', page: StrategyPage },
   { path: '/', page: HomePage },
 ];
 

@@ -39,6 +39,18 @@ export const buildRangeSeekerTheme = (): ITheme => {
       },
     },
     texts: textThemes,
+    inputWrappers: {
+      default: {
+        normal: {
+          default: {
+            background: {
+              'background-color': 'rgba(255, 255, 255, 0.1)',
+              'border-color': 'rgba(255, 255, 255, 0.2)',
+            },
+          },
+        },
+      },
+    },
   });
   theme.toasts = buildToastThemes(theme.colors, theme.dimensions, theme.boxes, theme.texts);
   return theme;
