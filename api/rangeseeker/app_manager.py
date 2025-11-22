@@ -87,14 +87,18 @@ class AppManager(Authorizer):
         poolAddress = pool.address
 
         currentPrice = await self.strategyManager.uniswapClient.get_current_price(poolAddress=poolAddress)
-        volatility = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=24)
+        volatilityData24h = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=24)
+        volatilityData7d = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=168)
         return PoolData(
             chainId=chainId,
             token0Address=token0Address,
             token1Address=token1Address,
             poolAddress=poolAddress,
             currentPrice=currentPrice,
-            volatility24h=volatility,
+            volatility24h=volatilityData24h.realized,
+            volatility7d=volatilityData7d.realized,
+            volatilityAnnualized=volatilityData24h.annualized,
+            volatilityRealized=volatilityData24h.realized,
         )
 
     async def get_pool_historical_data(self, chainId: int, token0Address: str, token1Address: str, hoursBack: int) -> PoolHistoricalData:

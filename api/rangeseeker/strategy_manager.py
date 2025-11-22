@@ -19,10 +19,10 @@ class StrategyManager:
 
     async def parse_strategy(self, description: str) -> StrategyDefinition:
         currentPrice = await self.uniswapClient.get_current_price(POOL_ADDRESS)
-        volatility = await self.uniswapClient.get_pool_volatility(POOL_ADDRESS, hoursBack=24)
+        volatilityData = await self.uniswapClient.get_pool_volatility(POOL_ADDRESS, hoursBack=24)
         contextData: dict[str, float | str | None] = {
             'currentPrice': currentPrice,
-            'volatility': volatility,
+            'volatility': volatilityData.realized,
         }
         return await self.parser.parse(description=description, contextData=contextData)
 

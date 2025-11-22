@@ -72,6 +72,7 @@ export interface PoolData {
   poolAddress: string;
   currentPrice: number;
   volatility24h: number;
+  volatility7d: number;
 }
 
 export interface PricePoint {

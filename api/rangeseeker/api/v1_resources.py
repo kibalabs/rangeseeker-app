@@ -61,6 +61,9 @@ class PoolData(BaseModel):
     poolAddress: str
     currentPrice: float
     volatility24h: float
+    volatility7d: float
+    volatilityAnnualized: float
+    volatilityRealized: float
 
 
 class PricePoint(BaseModel):

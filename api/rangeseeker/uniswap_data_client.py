@@ -33,6 +33,11 @@ class PoolState(BaseModel):
     liquidity: int
 
 
+class VolatilityData(BaseModel):
+    annualized: float
+    realized: float
+
+
 class Pool(BaseModel):
     address: str
     token0: str
@@ -131,9 +136,12 @@ class UniswapDataClient:
             liquidity=int(cast(int, event.get('liquidity', 0))),
         )
 
-    async def get_pool_volatility(self, poolAddress: str, hoursBack: int = 24) -> float:
+    async def get_pool_volatility(self, poolAddress: str, hoursBack: int = 24) -> VolatilityData:
         cutoffTime = datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(hours=hoursBack)
         timestampCutoff = cutoffTime.strftime('%Y-%m-%d %H:%M:%S')
+        secondsInYear = 365 * 24 * 3600
+        secondsInPeriod = hoursBack * 3600
+
         sql = f"""
         WITH prices AS (
             SELECT
@@ -149,26 +157,32 @@ class UniswapDataClient:
                 timestamp,
                 LN(price / LAG(price) OVER (ORDER BY timestamp)) as log_return
             FROM prices
+        ),
+        stats AS (
+            SELECT
+                STDDEV(log_return) as std_dev,
+                COUNT(*) as count,
+                EXTRACT(EPOCH FROM MAX(timestamp)) - EXTRACT(EPOCH FROM MIN(timestamp)) as duration_seconds
+            FROM returns
+            WHERE log_return IS NOT NULL
         )
         SELECT
-            STDDEV(log_return) as std_dev,
-            COUNT(*) as count,
-            EXTRACT(EPOCH FROM MAX(timestamp)) - EXTRACT(EPOCH FROM MIN(timestamp)) as duration_seconds
-        FROM returns
-        WHERE log_return IS NOT NULL
+            CASE
+                WHEN duration_seconds > 0 AND count >= {MIN_DATA_POINTS} THEN std_dev * SQRT((count / duration_seconds) * {secondsInYear})
+                ELSE 0
+            END as annualized_volatility,
+            CASE
+                WHEN duration_seconds > 0 AND count >= {MIN_DATA_POINTS} THEN std_dev * SQRT((count / duration_seconds) * {secondsInPeriod})
+                ELSE 0
+            END as realized_volatility
+        FROM stats
         """
         results = [row async for row in self.ampClient.execute_sql(sql)]
-        if not results or results[0].get('std_dev') is None:
-            return 0.0
+        if not results:
+            return VolatilityData(annualized=0.0, realized=0.0)
+
         row = results[0]
-        stdDev = float(cast(float, row['std_dev']))
-        durationSeconds = int(cast(float, row['duration_seconds']))
-        count = int(cast(int, row['count']))
-        if durationSeconds <= 0 or count < MIN_DATA_POINTS:
-            return 0.0
-        swapsPerYear = (count / durationSeconds) * (365 * 24 * 3600)
-        annualizedVol: float = stdDev * math.sqrt(swapsPerYear)
-        return annualizedVol
+        return VolatilityData(annualized=float(cast(float, row.get('annualized_volatility', 0.0))), realized=float(cast(float, row.get('realized_volatility', 0.0))))
 
     async def get_current_price(self, poolAddress: str, token0Decimals: int = 18, token1Decimals: int = 6) -> float:
         state = await self.get_pool_current_state(poolAddress)
