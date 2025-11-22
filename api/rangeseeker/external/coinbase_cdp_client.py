@@ -11,10 +11,25 @@ import jwt
 from core.exceptions import KibaException
 from core.http.rest_method import RestMethod
 from core.requester import Requester
+from core.util import chain_util
 from core.util.typing_util import Json
+from core.util.typing_util import JsonObject
 from cryptography.hazmat.primitives import asymmetric
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
+from pydantic import BaseModel
+
+from rangeseeker import constants
+
+BASE_CHAIN_ID = 8453
+
+
+class ClientAssetBalance(BaseModel):
+    assetAddress: str
+    balance: int
+    name: str
+    symbol: str
+    decimals: int
 
 
 def sort_json_object(obj: typing.Any) -> typing.Any:  # type: ignore[explicit-any]
@@ -138,3 +153,36 @@ class CoinbaseCdpClient:
         responseDict = response.json()
         address: str = str(responseDict['address'])
         return address
+
+    async def get_wallet_asset_balances(self, chainId: int, walletAddress: str) -> list[ClientAssetBalance]:
+        if chainId == constants.BASE_CHAIN_ID:
+            network = 'base'
+        else:
+            raise KibaException(f'Unsupported chainId: {chainId}')
+        allBalances: list[ClientAssetBalance] = []
+        pageToken: str | None = None
+        method = RestMethod.GET
+        url = f'https://api.cdp.coinbase.com/platform/v2/evm/token-balances/{network}/{walletAddress}'
+        dataDict: JsonObject = {'pageSize': 50}
+        while True:
+            if pageToken:
+                dataDict['pageToken'] = pageToken
+            headers = self._build_api_headers(url=url, method=method)
+            response = await self.requester.make_request(method=method, url=url, headers=headers, dataDict=dataDict)
+            responseDict = response.json()
+            allBalances.extend(
+                [
+                    ClientAssetBalance(
+                        assetAddress=chain_util.normalize_address(balance['token']['contractAddress']),
+                        balance=int(balance['amount']['amount']),
+                        name=balance['token'].get('name', ''),
+                        symbol=balance['token'].get('symbol', ''),
+                        decimals=int(balance['amount']['decimals']),
+                    )
+                    for balance in responseDict['balances']
+                ]
+            )
+            pageToken = responseDict.get('nextPageToken')
+            if not pageToken:
+                break
+        return allBalances
