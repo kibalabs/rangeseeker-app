@@ -1,8 +1,11 @@
 import datetime
 import math
 import statistics
+import typing
 from typing import cast
 
+from core.exceptions import NotFoundException
+from core.util import chain_util
 from pydantic import BaseModel
 
 from rangeseeker.amp_client import AmpClient
@@ -30,10 +33,22 @@ class PoolState(BaseModel):
     liquidity: int
 
 
+class Pool(BaseModel):
+    address: str
+    token0: str
+    token1: str
+    fee: int
+    tickSpacing: int
+    liquidity: int
+    sqrtPriceX96: int
+    tick: int
+
+
 class UniswapDataClient:
     def __init__(self, ampClient: AmpClient) -> None:
         self.ampClient = ampClient
         self.ampDatasetName = 'edgeandnode/uniswap_v3_base@0.0.1'
+        self._poolAddressCache: dict[str, Pool] = {}
 
     async def get_pool_swaps(self, poolAddress: str, hoursBack: int = 24) -> list[SwapEvent]:
         cutoffTime = datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(hours=hoursBack)
@@ -166,6 +181,93 @@ class UniswapDataClient:
         price = sqrtPrice**2
         adjustedPrice: float = price * (10**token0Decimals) / (10**token1Decimals)
         return adjustedPrice
+
+    async def get_pool(self, token0Address: str, token1Address: str, feeTier: int | None = None) -> Pool:
+        t0 = chain_util.normalize_address(token0Address)
+        t1 = chain_util.normalize_address(token1Address)
+        cacheKey = f'{t0}-{t1}-{feeTier}'
+        if cacheKey in self._poolAddressCache:
+            return self._poolAddressCache[cacheKey]
+        # Step 1: Get all pools for the pair
+        sql_pools = f"""
+        SELECT
+            event."pool" as pool_address,
+            event."token0" as token0,
+            event."token1" as token1,
+            event."fee" as fee,
+            event."tickSpacing" as tick_spacing
+        FROM "{self.ampDatasetName}".event__factory_pool_created
+        WHERE
+            (event."token0" = {t0} AND event."token1" = {t1})
+            OR
+            (event."token0" = {t1} AND event."token1" = {t0})
+        """
+        pool_results = [row async for row in self.ampClient.execute_sql(sql_pools)]
+        if not pool_results:
+            raise NotFoundException
+        pools_map = {}
+        pool_addresses = []
+        for row in pool_results:
+            poolAddressRaw = row.get('pool_address')
+            poolAddress = '0x' + poolAddressRaw.hex() if isinstance(poolAddressRaw, bytes) else str(poolAddressRaw)
+            poolAddress = chain_util.normalize_address(poolAddress)
+            pools_map[poolAddress] = row
+            pool_addresses.append(poolAddress)
+        if not pool_addresses:
+            raise NotFoundException
+        # Step 2: Get latest state for all pools
+        # Use UNION ALL to get latest state for each pool individually, avoiding massive window functions
+        subqueries = [
+            f"""
+                (SELECT
+                    pool_address,
+                    event
+                FROM "{self.ampDatasetName}".event__swap
+                WHERE pool_address = X'{addr[2:]}'
+                ORDER BY block_num DESC
+                LIMIT 1)
+            """
+            for addr in pool_addresses
+        ]
+        sql_state = ' UNION ALL '.join(subqueries)
+        state_results = [row async for row in self.ampClient.execute_sql(sql_state)]
+        states_map: dict[str, typing.Any] = {}  # type: ignore[explicit-any]
+        for row in state_results:
+            poolAddressRaw = row.get('pool_address')
+            poolAddress = '0x' + poolAddressRaw.hex() if isinstance(poolAddressRaw, bytes) else str(poolAddressRaw)
+            poolAddress = chain_util.normalize_address(poolAddress)
+            states_map[poolAddress] = row.get('event')
+        pools: list[Pool] = []
+        for poolAddress, row in pools_map.items():
+            swapEvent = states_map.get(poolAddress)
+            liquidity = 0
+            sqrtPriceX96 = 0
+            tick = 0
+            if swapEvent and isinstance(swapEvent, dict):
+                liquidity = int(cast(int, swapEvent.get('liquidity', 0)))
+                sqrtPriceX96 = int(cast(int, swapEvent.get('sqrtPriceX96', 0)))
+                tick = int(cast(int, swapEvent.get('tick', 0)))
+            token0Raw = row.get('token0')
+            token0 = '0x' + token0Raw.hex() if isinstance(token0Raw, bytes) else str(token0Raw)
+            token1Raw = row.get('token1')
+            token1 = '0x' + token1Raw.hex() if isinstance(token1Raw, bytes) else str(token1Raw)
+            pools.append(
+                Pool(
+                    address=poolAddress,
+                    token0=chain_util.normalize_address(token0),
+                    token1=chain_util.normalize_address(token1),
+                    fee=int(cast(int, row.get('fee', 0))),
+                    tickSpacing=int(cast(int, row.get('tick_spacing', 0))),
+                    liquidity=liquidity,
+                    sqrtPriceX96=sqrtPriceX96,
+                    tick=tick,
+                )
+            )
+        if not pools:
+            raise NotFoundException
+        selectedPool = min(pools, key=lambda p: abs(p.fee - feeTier)) if feeTier is not None else max(pools, key=lambda p: p.liquidity)
+        self._poolAddressCache[cacheKey] = selectedPool
+        return selectedPool
 
     def calculate_volatility(self, swaps: list[SwapEvent]) -> float:
         if len(swaps) < MIN_DATA_POINTS:

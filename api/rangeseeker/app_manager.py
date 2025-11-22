@@ -81,7 +81,11 @@ class AppManager(Authorizer):
         return await self.strategyManager.parse_strategy(description=description)
 
     async def get_pool_data(self, chainId: int, token0Address: str, token1Address: str) -> PoolData:
-        poolAddress = '0xd0b53D9277642d899DF5C87A3966A349A798F224'
+        token0Address = chain_util.normalize_address(token0Address)
+        token1Address = chain_util.normalize_address(token1Address)
+        pool = await self.strategyManager.uniswapClient.get_pool(token0Address=token0Address, token1Address=token1Address)
+        poolAddress = pool.address
+
         currentPrice = await self.strategyManager.uniswapClient.get_current_price(poolAddress=poolAddress)
         volatility = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=24)
         return PoolData(
@@ -94,7 +98,11 @@ class AppManager(Authorizer):
         )
 
     async def get_pool_historical_data(self, chainId: int, token0Address: str, token1Address: str, hoursBack: int) -> PoolHistoricalData:
-        poolAddress = '0xd0b53D9277642d899DF5C87A3966A349A798F224'
+        token0Address = chain_util.normalize_address(token0Address)
+        token1Address = chain_util.normalize_address(token1Address)
+        pool = await self.strategyManager.uniswapClient.get_pool(token0Address=token0Address, token1Address=token1Address)
+        poolAddress = pool.address
+
         swaps = await self.strategyManager.uniswapClient.get_pool_swaps(poolAddress=poolAddress, hoursBack=hoursBack)
         pricePoints = []
         for swap in swaps:
