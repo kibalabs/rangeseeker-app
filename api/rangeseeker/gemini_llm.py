@@ -15,7 +15,7 @@ class LLM:
 
 
 class GeminiLLM(LLM):
-    def __init__(self, apiKey: str, requester: Requester, modelId: str = 'gemini-3-pro-preview') -> None:
+    def __init__(self, apiKey: str, requester: Requester, modelId: str = 'gemini-2.5-flash') -> None:
         self.apiKey = apiKey
         self.requester = requester
         self.endpoint = f'https://generativelanguage.googleapis.com/v1beta/models/{modelId}:generateContent'
@@ -32,7 +32,7 @@ class GeminiLLM(LLM):
 
     async def get_next_step(self, promptQuery: JsonObject) -> JsonObject:
         headers = {'Content-Type': 'application/json'}
-        response = await self.requester.post(url=f'{self.endpoint}?key={self.apiKey}', headers=headers, dataDict=promptQuery)
+        response = await self.requester.post(url=f'{self.endpoint}?key={self.apiKey}', headers=headers, dataDict=promptQuery, timeout=60)
         responseJson = response.json()
         rawText = responseJson['candidates'][0]['content']['parts'][0]['text']
         jsonText = rawText.replace('```json', '', 1).replace('```', '', 1).strip()
