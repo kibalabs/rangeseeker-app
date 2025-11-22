@@ -10,7 +10,7 @@ export function HomePage(): React.ReactElement {
   const navigator = useNavigator();
 
   const onConnectClicked = () => {
-    navigator.navigateTo('/create');
+    navigator.navigateTo('/agents');
   };
 
   return (

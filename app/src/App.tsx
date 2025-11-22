@@ -7,11 +7,13 @@ import { DashboardPage } from './pages/DashboardPage';
 import { DeployPage } from './pages/DeployPage';
 import { HomePage } from './pages/HomePage';
 import { StrategyPage } from './pages/StrategyPage';
+import { AgentsPage } from './pages/AgentsPage';
 import { buildRangeSeekerTheme } from './theme';
 
 const theme = buildRangeSeekerTheme();
 
 const routes: IRoute<void>[] = [
+  { path: '/agents', page: AgentsPage },
   { path: '/create', page: StrategyPage },
   { path: '/deploy', page: DeployPage },
   { path: '/dashboard', page: DashboardPage },
