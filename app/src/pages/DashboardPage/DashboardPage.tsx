@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Alignment, Box, Button, Direction, PaddingSize, Spacing, Stack, Text } from '@kibalabs/ui-react';
+import { Alignment, Box, Direction, PaddingSize, Spacing, Stack, Text } from '@kibalabs/ui-react';
 import styled from 'styled-components';
 
 
