@@ -47,7 +47,8 @@ export function StrategyPage(): React.ReactElement {
     if (!strategyDefinition) return undefined;
     const rangeRule = strategyDefinition.rules.find((rule) => rule.type === 'RANGE_WIDTH');
     if (rangeRule && 'baseRangePercent' in rangeRule.parameters) {
-      return rangeRule.parameters.baseRangePercent;
+      // baseRangePercent is a whole number (e.g., 4 for 4%), convert to decimal (0.04)
+      return rangeRule.parameters.baseRangePercent / 100;
     }
     return undefined;
   }, [strategyDefinition]);
@@ -58,13 +59,10 @@ export function StrategyPage(): React.ReactElement {
   // Calculate earnings estimate based on strategy range
   const earningsEstimate = React.useMemo(() => {
     if (!poolData || rangePercent === undefined) return null;
-
-    console.log('Calculating earnings with:', {
-      feeGrowth7d: poolData.feeGrowth7d,
-      feeRate: poolData.feeRate,
-      rangePercent,
-      currentPrice: poolData.currentPrice,
-    });
+    if (!poolData.feeGrowth7d || !poolData.feeRate) {
+      console.error('Missing feeGrowth7d or feeRate in poolData', poolData);
+      return null;
+    }
 
     const TOKEN0_DECIMALS = 18; // WETH
     const TOKEN1_DECIMALS = 6; // USDC
@@ -84,19 +82,77 @@ export function StrategyPage(): React.ReactElement {
     const liquidityAdjustment = 10 ** ((TOKEN0_DECIMALS + TOKEN1_DECIMALS) / 2);
     const liquidityFor100Raw = liquidityFor100 * liquidityAdjustment;
 
-    const weeklyEarningsUsd = poolData.feeGrowth7d * poolData.feeRate * liquidityFor100Raw;
-    const weeklyPercent = (weeklyEarningsUsd / INVESTMENT_AMOUNT) * 100;
-    const apyPercent = weeklyPercent * 52;
+    // Base weekly earnings assuming 100% time in range, no costs
+    const maxWeeklyEarningsUsd = poolData.feeGrowth7d * poolData.feeRate * liquidityFor100Raw;
 
-    console.log('Calculated earnings:', {
-      liquidityFor100,
-      liquidityFor100Raw,
-      weeklyEarningsUsd,
-      weeklyPercent,
-      apyPercent,
-    });
+    // Calculate volatility to range ratio - key metric for time in range
+    const volatilityRatio = poolData.volatility7d / rangePercent;
 
-    return { weeklyUsd: weeklyEarningsUsd, weeklyPercent, apyPercent };
+    // Estimate time in range
+    // Note: Auto-rebalancing means we get back in range quickly, and mean reversion helps
+    // Best case: favorable conditions (trending market, good timing)
+    // Worst case: unfavorable conditions (choppy market, bad timing) but not catastrophic
+    let bestCaseTimeInRange = 0.95;
+    let worstCaseTimeInRange = 0.7; // Still reasonable even in worst case
+
+    if (volatilityRatio > 4) {
+      // Extremely tight relative to volatility (e.g., ±2% with 8% vol)
+      // These are high-risk/high-reward strategies
+      bestCaseTimeInRange = 0.7; // Good conditions with quick rebalancing
+      worstCaseTimeInRange = 0.45; // Choppy market, but auto-rebalance helps
+    } else if (volatilityRatio > 2.5) {
+      // Very tight (e.g., ±4% with 10% vol)
+      bestCaseTimeInRange = 0.8;
+      worstCaseTimeInRange = 0.55;
+    } else if (volatilityRatio > 1.5) {
+      // Moderately tight
+      bestCaseTimeInRange = 0.85;
+      worstCaseTimeInRange = 0.65;
+    } else if (volatilityRatio > 0.8) {
+      // Balanced
+      bestCaseTimeInRange = 0.9;
+      worstCaseTimeInRange = 0.75;
+    }
+
+    // Rebalancing on Base L2 (cheaper than mainnet)
+    const gasPerRebalance = 3; // ~$3 on Base
+
+    // Rebalancing frequency scales with how tight the range is
+    // Best case: price stays stable, occasional rebalances
+    // Worst case: choppy market, more frequent rebalances but capped at reasonable limit
+    const bestCaseRebalancesPerWeek = Math.max(0.3, volatilityRatio * 0.25);
+    const bestCaseGasCosts = bestCaseRebalancesPerWeek * gasPerRebalance;
+
+    // Cap worst case at 2 rebalances/week even for aggressive strategies
+    // (more than that and you'd likely pause the strategy)
+    const worstCaseRebalancesPerWeek = Math.min(2, Math.max(0.5, volatilityRatio * 0.5));
+    const worstCaseGasCosts = worstCaseRebalancesPerWeek * gasPerRebalance;
+
+    // Calculate range
+    const bestCaseWeeklyUsd = (maxWeeklyEarningsUsd * bestCaseTimeInRange) - bestCaseGasCosts;
+    const worstCaseWeeklyUsd = (maxWeeklyEarningsUsd * worstCaseTimeInRange) - worstCaseGasCosts;
+
+    const bestCaseWeeklyPercent = (bestCaseWeeklyUsd / INVESTMENT_AMOUNT) * 100;
+    const worstCaseWeeklyPercent = (worstCaseWeeklyUsd / INVESTMENT_AMOUNT) * 100;
+
+    // Compound weekly returns to annual (more realistic than simple multiplication)
+    const bestCaseAPY = ((1 + bestCaseWeeklyPercent / 100) ** 52 - 1) * 100;
+    const worstCaseAPY = worstCaseWeeklyUsd > 0
+      ? ((1 + worstCaseWeeklyPercent / 100) ** 52 - 1) * 100
+      : worstCaseWeeklyPercent * 52; // If negative, just multiply for negative APY
+
+    return {
+      bestCase: {
+        weeklyUsd: bestCaseWeeklyUsd,
+        weeklyPercent: bestCaseWeeklyPercent,
+        apyPercent: bestCaseAPY,
+      },
+      worstCase: {
+        weeklyUsd: worstCaseWeeklyUsd,
+        weeklyPercent: worstCaseWeeklyPercent,
+        apyPercent: worstCaseAPY,
+      },
+    };
   }, [poolData, rangePercent]);
 
   React.useEffect(() => {
@@ -288,20 +344,22 @@ export function StrategyPage(): React.ReactElement {
                     </Stack>
                     {earningsEstimate && (
                       <GlassCard variant='secondary'>
-                        <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Default}>
-                          <Text variant='header4'>💰 Expected Earnings ($100 Investment)</Text>
-                          <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center}>
+                        <Stack direction={Direction.Vertical} shouldAddGutters={true}>
+                          <Text variant='bold'>💰 Estimated earnings on $100 investment</Text>
+                          <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} defaultGutter={PaddingSize.Wide2}>
                             <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                              <Text variant='note'>Weekly Return</Text>
-                              <Text variant='header2'>{`$${earningsEstimate.weeklyUsd.toFixed(2)}`}</Text>
-                              <Text variant='note'>{`${earningsEstimate.weeklyPercent.toFixed(2)}%`}</Text>
+                              <Text variant='note'>Good case</Text>
+                              <Text variant='header3'>{`$${earningsEstimate.bestCase.weeklyUsd.toFixed(2)}/wk`}</Text>
+                              <Text variant='bold'>{`${earningsEstimate.bestCase.apyPercent.toFixed(1)}% APY`}</Text>
                             </Stack>
+                            <Text variant='header3'>→</Text>
                             <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                              <Text variant='note'>Estimated APY</Text>
-                              <Text variant='header2'>{`${earningsEstimate.apyPercent.toFixed(1)}%`}</Text>
-                              <Text variant='note'>Annualized</Text>
+                              <Text variant='note'>Bad case</Text>
+                              <Text variant='header3'>{`$${earningsEstimate.worstCase.weeklyUsd.toFixed(2)}/wk`}</Text>
+                              <Text variant='bold'>{`${earningsEstimate.worstCase.apyPercent.toFixed(1)}% APY`}</Text>
                             </Stack>
                           </Stack>
+                          <Text variant='note' alignment={TextAlignment.Center}>Range based on time-in-range and gas costs</Text>
                         </Stack>
                       </GlassCard>
                     )}

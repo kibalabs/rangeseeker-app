@@ -15,6 +15,7 @@ USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 
 AMP_TOKEN = os.environ['THEGRAPHAMP_API_KEY']
 
+
 async def main() -> None:
     print('=' * 80)
     print('POOL DATA TEST')

@@ -91,6 +91,7 @@ class AppManager(Authorizer):
         volatilityData7d = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=168)
         feeGrowth7d = await self.strategyManager.uniswapClient.get_pool_fee_growth(poolAddress=poolAddress, hoursBack=168)
         feeRate = pool.fee / 1_000_000.0
+
         return PoolData(
             chainId=chainId,
             token0Address=token0Address,
