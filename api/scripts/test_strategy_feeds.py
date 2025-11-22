@@ -11,6 +11,7 @@ from typing import cast
 
 from core.exceptions import KibaException
 from core.requester import Requester
+from core.util.typing_util import JsonObject
 
 import _path_fix  # type: ignore[import-not-found] # noqa: F401
 from rangeseeker.amp_client import AmpClient
@@ -58,6 +59,50 @@ class PoolState:
     sqrtPriceX96: int
     tick: int
     liquidity: int
+
+
+@dataclass
+class DynamicWidening:
+    enabled: bool
+    volatilityThreshold: float
+    widenToPercent: float
+
+
+@dataclass
+class RangeWidthParameters:
+    baseRangePercent: float
+    dynamicWidening: DynamicWidening | None
+    rebalanceBuffer: float
+
+
+@dataclass
+class PriceThresholdParameters:
+    asset: str
+    operator: str
+    priceUsd: float
+    action: str
+    targetAsset: str
+
+
+@dataclass
+class VolatilityTriggerParameters:
+    threshold: float
+    window: str
+    action: str
+
+
+@dataclass
+class StrategyRule:
+    type: str
+    priority: int
+    parameters: RangeWidthParameters | PriceThresholdParameters | VolatilityTriggerParameters
+
+
+@dataclass
+class StrategyDefinition:
+    rules: list[StrategyRule]
+    feedRequirements: list[str]
+    summary: str
 
 
 class UniswapDataClient:
@@ -164,8 +209,8 @@ class UniswapDataClient:
         if durationSeconds <= 0 or count < MIN_DATA_POINTS:
             return 0.0
         swapsPerYear = (count / durationSeconds) * (365 * 24 * 3600)
-        annualizedVol = stdDev * math.sqrt(swapsPerYear)
-        return float(annualizedVol)
+        annualizedVol: float = stdDev * math.sqrt(swapsPerYear)
+        return annualizedVol
 
     async def get_current_price(self, poolAddress: str, token0Decimals: int = 18, token1Decimals: int = 6) -> float:
         state = await self.get_pool_current_state(poolAddress)
@@ -176,7 +221,7 @@ class UniswapDataClient:
     def calculate_price_from_sqrt_price_x96(self, sqrtPriceX96: int, token0Decimals: int = 18, token1Decimals: int = 6) -> float:
         sqrtPrice = sqrtPriceX96 / (2**96)
         price = sqrtPrice**2
-        adjustedPrice = price * (10**token0Decimals) / (10**token1Decimals)
+        adjustedPrice: float = price * (10**token0Decimals) / (10**token1Decimals)
         return adjustedPrice
 
     def calculate_volatility(self, swaps: list[SwapEvent]) -> float:
@@ -207,7 +252,7 @@ class StrategyParser:
     def __init__(self, llm: GeminiLLM) -> None:
         self.llm = llm
 
-    async def parse(self, description: str, contextData: dict[str, float | str | None]) -> dict:  # type: ignore[type-arg]
+    async def parse(self, description: str, contextData: dict[str, float | str | None]) -> StrategyDefinition:
         systemPrompt = """You are a DeFi strategy analyzer that converts natural language descriptions into structured Uniswap V3 liquidity provision rules.
 
 Current market context:
@@ -280,35 +325,69 @@ Parse the user's strategy and create appropriate rules with correct priorities. 
         userPrompt = f'Parse this strategy: {description}'
         formattedSystemPrompt = systemPrompt.format(
             currentPrice=contextData.get('currentPrice', 0.0),
-            volatility=contextData.get('volatility', 0.0) * 100,
+            volatility=cast(float, contextData.get('volatility', 0.0)) * 100,
         )
         promptQuery = await self.llm.get_query(systemPrompt=formattedSystemPrompt, prompt=userPrompt)
         parsed = await self.llm.get_next_step(promptQuery)
         if 'rules' not in parsed or not isinstance(parsed['rules'], list):
             raise KibaException('LLM response missing rules array')
-        if 'summary' not in parsed:
-            parsed['summary'] = self._generate_summary(parsed['rules'])
-        return parsed
+        rules = [self._parse_rule(cast(JsonObject, ruleDict)) for ruleDict in parsed['rules']]
+        feedRequirements = [str(req) for req in cast(list[str], parsed.get('feedRequirements', []))]
+        summary = str(parsed.get('summary', self._generate_summary(rules)))
+        return StrategyDefinition(rules=rules, feedRequirements=feedRequirements, summary=summary)
 
-    def _generate_summary(self, rules: list) -> str:  # type: ignore[type-arg]
+    def _parse_rule(self, ruleDict: JsonObject) -> StrategyRule:
+        ruleType = str(ruleDict['type'])
+        priority = int(cast(int, ruleDict['priority']))
+        paramsDict = cast(JsonObject, ruleDict['parameters'])
+        parameters: RangeWidthParameters | PriceThresholdParameters | VolatilityTriggerParameters
+        if ruleType == 'RANGE_WIDTH':
+            dynamicWideningDict = paramsDict.get('dynamicWidening')
+            dynamicWidening = None
+            if dynamicWideningDict and isinstance(dynamicWideningDict, dict):
+                dynamicWidening = DynamicWidening(
+                    enabled=bool(dynamicWideningDict.get('enabled', False)),
+                    volatilityThreshold=float(cast(float, dynamicWideningDict.get('volatilityThreshold', 0.0))),
+                    widenToPercent=float(cast(float, dynamicWideningDict.get('widenToPercent', 0.0))),
+                )
+            parameters = RangeWidthParameters(
+                baseRangePercent=float(cast(float, paramsDict['baseRangePercent'])),
+                dynamicWidening=dynamicWidening,
+                rebalanceBuffer=float(cast(float, paramsDict.get('rebalanceBuffer', 0.1))),
+            )
+        elif ruleType == 'PRICE_THRESHOLD':
+            parameters = PriceThresholdParameters(
+                asset=str(paramsDict['asset']),
+                operator=str(paramsDict['operator']),
+                priceUsd=float(cast(float, paramsDict['priceUsd'])),
+                action=str(paramsDict['action']),
+                targetAsset=str(paramsDict['targetAsset']),
+            )
+        elif ruleType == 'VOLATILITY_TRIGGER':
+            parameters = VolatilityTriggerParameters(
+                threshold=float(cast(float, paramsDict['threshold'])),
+                window=str(paramsDict['window']),
+                action=str(paramsDict['action']),
+            )
+        else:
+            raise KibaException(f'Unknown rule type: {ruleType}')
+        return StrategyRule(type=ruleType, priority=priority, parameters=parameters)
+
+    def _generate_summary(self, rules: list[StrategyRule]) -> str:
         summaryParts = []
         for rule in rules:
-            if rule['type'] == 'RANGE_WIDTH':
-                rangePercent = rule['parameters']['baseRangePercent']
-                summaryParts.append(f'Maintain ±{rangePercent}% range')
-                dynamicWidening = rule['parameters'].get('dynamicWidening')
-                if dynamicWidening and isinstance(dynamicWidening, dict) and dynamicWidening.get('enabled'):
-                    volThreshold = dynamicWidening['volatilityThreshold'] * 100
-                    widenTo = dynamicWidening['widenToPercent']
+            if rule.type == 'RANGE_WIDTH':
+                rangeParams = cast(RangeWidthParameters, rule.parameters)
+                summaryParts.append(f'Maintain ±{rangeParams.baseRangePercent}% range')
+                if rangeParams.dynamicWidening and rangeParams.dynamicWidening.enabled:
+                    volThreshold = rangeParams.dynamicWidening.volatilityThreshold * 100
+                    widenTo = rangeParams.dynamicWidening.widenToPercent
                     summaryParts.append(f'widen to ±{widenTo}% if volatility > {volThreshold}%')
-            elif rule['type'] == 'PRICE_THRESHOLD':
-                asset = rule['parameters']['asset']
-                operator = rule['parameters']['operator']
-                price = rule['parameters']['priceUsd']
-                action = rule['parameters']['action']
-                opText = 'below' if operator == 'LESS_THAN' else 'above'
-                actionText = f'exit to {rule["parameters"]["targetAsset"]}' if action == 'EXIT_TO_STABLE' else action.lower()
-                summaryParts.append(f'{actionText} if {asset} {opText} ${price:,.0f}')
+            elif rule.type == 'PRICE_THRESHOLD':
+                priceParams = cast(PriceThresholdParameters, rule.parameters)
+                opText = 'below' if priceParams.operator == 'LESS_THAN' else 'above'
+                actionText = f'exit to {priceParams.targetAsset}' if priceParams.action == 'EXIT_TO_STABLE' else priceParams.action.lower()
+                summaryParts.append(f'{actionText} if {priceParams.asset} {opText} ${priceParams.priceUsd:,.0f}')
         return ', '.join(summaryParts)
 
 
@@ -346,7 +425,7 @@ async def main() -> None:
     print(f'✓ Current Price: ${currentPrice:,.2f} USDC per WETH')
     print(f'✓ 24h Annualized Volatility: {volatility * 100:.2f}%')
     print()
-    contextData: dict[str, float | str] = {
+    contextData: dict[str, float | str | None] = {
         'currentPrice': currentPrice,
         'volatility': volatility,
         'swapCount24h': swapCount,
@@ -357,24 +436,36 @@ async def main() -> None:
     print()
     print('Sending to Gemini for parsing...')
     strategyDef = await parser.parse(STRATEGY_INPUT, contextData)
-    print(f'✓ Parsed Strategy: {strategyDef.get("summary", "N/A")}')
-    print(f'✓ Feed Requirements: {", ".join(strategyDef["feedRequirements"])}')
+    print(f'✓ Parsed Strategy: {strategyDef.summary}')
+    print(f'✓ Feed Requirements: {", ".join(strategyDef.feedRequirements)}')
     print()
     print('Rules:')
-    for i, rule in enumerate(strategyDef['rules'], 1):
-        print(f'  {i}. {rule["type"]} (Priority {rule["priority"]})')
-        print(f'     Parameters: {json.dumps(rule["parameters"], indent=8)}')
+    for i, rule in enumerate(strategyDef.rules, 1):
+        print(f'  {i}. {rule.type} (Priority {rule.priority})')
+        if rule.type == 'RANGE_WIDTH':
+            rangeParams = cast(RangeWidthParameters, rule.parameters)
+            print(f'     baseRangePercent: {rangeParams.baseRangePercent}')
+            print(f'     rebalanceBuffer: {rangeParams.rebalanceBuffer}')
+            if rangeParams.dynamicWidening:
+                print(f'     dynamicWidening: enabled={rangeParams.dynamicWidening.enabled}, threshold={rangeParams.dynamicWidening.volatilityThreshold}, widenTo={rangeParams.dynamicWidening.widenToPercent}')
+        elif rule.type == 'PRICE_THRESHOLD':
+            priceParams = cast(PriceThresholdParameters, rule.parameters)
+            print(f'     asset: {priceParams.asset}, operator: {priceParams.operator}, priceUsd: {priceParams.priceUsd}')
+            print(f'     action: {priceParams.action}, targetAsset: {priceParams.targetAsset}')
+        elif rule.type == 'VOLATILITY_TRIGGER':
+            volParams = cast(VolatilityTriggerParameters, rule.parameters)
+            print(f'     threshold: {volParams.threshold}, window: {volParams.window}, action: {volParams.action}')
     print()
     print('-' * 80)
     print('STEP 3: MAP RULES TO FEEDS')
     print('-' * 80)
     print()
     feedMappings = []
-    for rule in strategyDef['rules']:
-        if rule['type'] == 'RANGE_WIDTH' or rule['type'] == 'PRICE_THRESHOLD':
+    for rule in strategyDef.rules:
+        if rule.type in ('RANGE_WIDTH', 'PRICE_THRESHOLD'):
             feedMappings.append(
                 {
-                    'ruleType': rule['type'],
+                    'ruleType': rule.type,
                     'feedType': 'PYTH_PRICE',
                     'feedConfig': {
                         'priceId': PYTH_ETH_USD_PRICE_ID,
@@ -383,10 +474,10 @@ async def main() -> None:
                     },
                 }
             )
-        if rule['type'] == 'VOLATILITY_TRIGGER' or (rule['type'] == 'RANGE_WIDTH' and rule['parameters'].get('dynamicWidening')):
+        if rule.type == 'VOLATILITY_TRIGGER' or (rule.type == 'RANGE_WIDTH' and isinstance(rule.parameters, RangeWidthParameters) and rule.parameters.dynamicWidening):
             feedMappings.append(
                 {
-                    'ruleType': rule['type'],
+                    'ruleType': rule.type,
                     'feedType': 'THEGRAPH_VOLATILITY',
                     'feedConfig': {
                         'flightUrl': ampClient.flightUrl,
@@ -409,43 +500,39 @@ async def main() -> None:
     print()
     simulatedPythPrice = currentPrice if currentPrice > 0 else 3500.0
     print(f'📡 PYTH_PRICE update: ETH = ${simulatedPythPrice:,.2f}')
-    for rule in strategyDef['rules']:
-        print(f'\nEvaluating {rule["type"]}...')
-        if rule['type'] == 'RANGE_WIDTH':
-            rangePercent = rule['parameters']['baseRangePercent']
-            lowerBound = simulatedPythPrice * (1 - rangePercent / 100)
-            upperBound = simulatedPythPrice * (1 + rangePercent / 100)
+    for rule in strategyDef.rules:
+        print(f'\nEvaluating {rule.type}...')
+        if rule.type == 'RANGE_WIDTH':
+            rangeParams = cast(RangeWidthParameters, rule.parameters)
+            lowerBound = simulatedPythPrice * (1 - rangeParams.baseRangePercent / 100)
+            upperBound = simulatedPythPrice * (1 + rangeParams.baseRangePercent / 100)
             print(f'  Current range: ${lowerBound:,.2f} - ${upperBound:,.2f}')
-            dynamicWidening = rule['parameters'].get('dynamicWidening')
-            if dynamicWidening and isinstance(dynamicWidening, dict) and dynamicWidening.get('enabled'):
-                volThreshold = dynamicWidening['volatilityThreshold']
+            if rangeParams.dynamicWidening and rangeParams.dynamicWidening.enabled:
+                volThreshold = rangeParams.dynamicWidening.volatilityThreshold
                 if volatility > volThreshold:
-                    widenToPercent = dynamicWidening['widenToPercent']
+                    widenToPercent = rangeParams.dynamicWidening.widenToPercent
                     print(f'  ⚠ Volatility {volatility * 100:.2f}% > threshold {volThreshold * 100:.2f}%')
                     print(f'  → Widening range to ±{widenToPercent}%')
                 else:
                     print(f'  ✓ Volatility {volatility * 100:.2f}% within threshold')
-        elif rule['type'] == 'PRICE_THRESHOLD':
-            targetPrice = rule['parameters']['priceUsd']
-            operator = rule['parameters']['operator']
-            action = rule['parameters']['action']
-            if operator == 'LESS_THAN':
-                triggered = simulatedPythPrice < targetPrice
+        elif rule.type == 'PRICE_THRESHOLD':
+            priceParams = cast(PriceThresholdParameters, rule.parameters)
+            if priceParams.operator == 'LESS_THAN':
+                triggered = simulatedPythPrice < priceParams.priceUsd
                 comparison = '<'
             else:
-                triggered = simulatedPythPrice > targetPrice
+                triggered = simulatedPythPrice > priceParams.priceUsd
                 comparison = '>'
             if triggered:
-                print(f'  🚨 TRIGGERED: ${simulatedPythPrice:,.2f} {comparison} ${targetPrice:,.2f}')
-                print(f'  → Action: {action}')
+                print(f'  🚨 TRIGGERED: ${simulatedPythPrice:,.2f} {comparison} ${priceParams.priceUsd:,.2f}')
+                print(f'  → Action: {priceParams.action}')
             else:
-                print(f'  ✓ Not triggered: ${simulatedPythPrice:,.2f} vs ${targetPrice:,.2f}')
-        elif rule['type'] == 'VOLATILITY_TRIGGER':
-            threshold = rule['parameters']['threshold']
-            action = rule['parameters']['action']
-            if volatility > threshold:
-                print(f'  🚨 TRIGGERED: Volatility {volatility * 100:.2f}% > {threshold * 100:.2f}%')
-                print(f'  → Action: {action}')
+                print(f'  ✓ Not triggered: ${simulatedPythPrice:,.2f} vs ${priceParams.priceUsd:,.2f}')
+        elif rule.type == 'VOLATILITY_TRIGGER':
+            volParams = cast(VolatilityTriggerParameters, rule.parameters)
+            if volatility > volParams.threshold:
+                print(f'  🚨 TRIGGERED: Volatility {volatility * 100:.2f}% > {volParams.threshold * 100:.2f}%')
+                print(f'  → Action: {volParams.action}')
             else:
                 print(f'  ✓ Not triggered: Volatility {volatility * 100:.2f}% within threshold')
     print()
@@ -457,7 +544,7 @@ async def main() -> None:
     print(f'  • Fetched real blockchain data from TheGraph AMP')
     print(f'  • Parsed strategy with Gemini LLM')
     print(f'  • Mapped {len(feedMappings)} feed subscriptions')
-    print(f'  • Evaluated {len(strategyDef["rules"])} rules')
+    print(f'  • Evaluated {len(strategyDef.rules)} rules')
     print()
     print('Next Steps:')
     print('  1. Integrate this flow into main app')
