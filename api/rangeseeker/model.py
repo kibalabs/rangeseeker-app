@@ -28,7 +28,7 @@ class Strategy(BaseModel):
     userId: str
     name: str
     description: str
-    rulesJson: JsonObject
+    rulesJson: list[JsonObject]
     feedRequirements: list[str]
     summary: str
 
