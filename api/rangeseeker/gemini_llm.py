@@ -25,7 +25,7 @@ class GeminiLLM(LLM):
             'system_instruction': {'parts': [{'text': systemPrompt}]},
             'contents': [{'role': 'user', 'parts': [{'text': prompt}]}],
             'generationConfig': {
-                # "temperature": 0.7
+                'response_mime_type': 'application/json',
             },
         }
         return promptQuery
@@ -35,7 +35,12 @@ class GeminiLLM(LLM):
         response = await self.requester.post(url=f'{self.endpoint}?key={self.apiKey}', headers=headers, dataDict=promptQuery, timeout=60)
         responseJson = response.json()
         rawText = responseJson['candidates'][0]['content']['parts'][0]['text']
-        jsonText = rawText.replace('```json', '', 1).replace('```', '', 1).strip()
+        # Remove markdown code blocks if present
+        jsonText = rawText.strip()
+        if jsonText.startswith('```'):
+            jsonText = jsonText.split('\n', 1)[1] if '\n' in jsonText else jsonText
+            jsonText = jsonText.rsplit('```', 1)[0] if '```' in jsonText else jsonText
+            jsonText = jsonText.strip()
         try:
             jsonDict = json_util.loads(jsonText)
         except Exception:

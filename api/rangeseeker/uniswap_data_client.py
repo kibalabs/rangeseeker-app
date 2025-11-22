@@ -1,8 +1,9 @@
 import datetime
 import math
 import statistics
-from dataclasses import dataclass
 from typing import cast
+
+from pydantic import BaseModel
 
 from rangeseeker.amp_client import AmpClient
 from rangeseeker.amp_client import SqlValue
@@ -10,8 +11,7 @@ from rangeseeker.amp_client import SqlValue
 MIN_DATA_POINTS = 2
 
 
-@dataclass
-class SwapEvent:
+class SwapEvent(BaseModel):
     timestamp: int
     sqrtPriceX96: int
     amount0: int
@@ -22,8 +22,7 @@ class SwapEvent:
     blockNumber: int
 
 
-@dataclass
-class PoolState:
+class PoolState(BaseModel):
     blockNumber: int
     timestamp: int
     sqrtPriceX96: int

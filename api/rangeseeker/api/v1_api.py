@@ -27,7 +27,7 @@ def create_v1_routes(appManager: AppManager) -> list[Route]:
     @authorize_signature(authorizer=appManager)
     async def parse_strategy(request: KibaApiRequest[endpoints.ParseStrategyRequest]) -> endpoints.ParseStrategyResponse:
         strategyDefinition = await appManager.parse_strategy(description=request.data.description)
-        return endpoints.ParseStrategyResponse(strategyDefinition=resources.StrategyDefinition.model_validate(strategyDefinition))
+        return endpoints.ParseStrategyResponse(strategyDefinition=resources.StrategyDefinition.model_validate(strategyDefinition.model_dump()))
 
     @json_route(requestType=endpoints.GetPoolDataRequest, responseType=endpoints.GetPoolDataResponse)
     async def get_pool_data(request: KibaApiRequest[endpoints.GetPoolDataRequest]) -> endpoints.GetPoolDataResponse:

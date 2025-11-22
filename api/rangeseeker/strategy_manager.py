@@ -1,5 +1,3 @@
-import dataclasses
-
 from core.store.database import Database
 from core.util import json_util
 
@@ -29,7 +27,7 @@ class StrategyManager:
         return await self.parser.parse(description=description, contextData=contextData)
 
     async def create_strategy(self, userId: str, name: str, description: str, strategyDefinition: StrategyDefinition) -> Strategy:
-        rulesJson = json_util.loads(json_util.dumps([dataclasses.asdict(rule) for rule in strategyDefinition.rules]))
+        rulesJson = json_util.loads(json_util.dumps([rule.model_dump() for rule in strategyDefinition.rules]))
         strategy = await schema.StrategiesRepository.create(
             database=self.database,
             userId=userId,

@@ -1,28 +1,25 @@
-from dataclasses import dataclass
 from typing import cast
 
 from core.exceptions import KibaException
 from core.util.typing_util import JsonObject
+from pydantic import BaseModel
 
 from rangeseeker.gemini_llm import GeminiLLM
 
 
-@dataclass
-class DynamicWidening:
+class DynamicWidening(BaseModel):
     enabled: bool
     volatilityThreshold: float
     widenToPercent: float
 
 
-@dataclass
-class RangeWidthParameters:
+class RangeWidthParameters(BaseModel):
     baseRangePercent: float
     dynamicWidening: DynamicWidening | None
     rebalanceBuffer: float
 
 
-@dataclass
-class PriceThresholdParameters:
+class PriceThresholdParameters(BaseModel):
     asset: str
     operator: str
     priceUsd: float
@@ -30,22 +27,19 @@ class PriceThresholdParameters:
     targetAsset: str
 
 
-@dataclass
-class VolatilityTriggerParameters:
+class VolatilityTriggerParameters(BaseModel):
     threshold: float
     window: str
     action: str
 
 
-@dataclass
-class StrategyRule:
+class StrategyRule(BaseModel):
     type: str
     priority: int
     parameters: RangeWidthParameters | PriceThresholdParameters | VolatilityTriggerParameters
 
 
-@dataclass
-class StrategyDefinition:
+class StrategyDefinition(BaseModel):
     rules: list[StrategyRule]
     feedRequirements: list[str]
     summary: str
