@@ -73,6 +73,8 @@ export interface PoolData {
   currentPrice: number;
   volatility24h: number;
   volatility7d: number;
+  feeGrowth7d: number;
+  feeRate: number;
 }
 
 export interface PricePoint {

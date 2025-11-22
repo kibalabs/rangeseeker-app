@@ -36,13 +36,68 @@ export function StrategyPage(): React.ReactElement {
   const { rangeSeekerClient } = useGlobals();
   const { authToken } = useAuth();
   const navigator = useNavigator();
-  const { data: poolData, isLoading: isLoadingPool, error: poolDataError } = usePoolDataQuery(CHAIN_ID, WETH_ADDRESS, USDC_ADDRESS);
-  const { data: historicalData } = usePoolHistoricalDataQuery(CHAIN_ID, WETH_ADDRESS, USDC_ADDRESS, 24 * 7);
   const [selectedPreset, setSelectedPreset] = useState<string>('conservative');
   const [strategyInput, setStrategyInput] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [strategyDefinition, setStrategyDefinition] = useState<StrategyDefinition | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Extract range percent from strategy definition
+  const rangePercent = React.useMemo(() => {
+    if (!strategyDefinition) return undefined;
+    const rangeRule = strategyDefinition.rules.find((rule) => rule.type === 'RANGE_WIDTH');
+    if (rangeRule && 'baseRangePercent' in rangeRule.parameters) {
+      return rangeRule.parameters.baseRangePercent;
+    }
+    return undefined;
+  }, [strategyDefinition]);
+
+  const { data: poolData, isLoading: isLoadingPool, error: poolDataError } = usePoolDataQuery(CHAIN_ID, WETH_ADDRESS, USDC_ADDRESS);
+  const { data: historicalData } = usePoolHistoricalDataQuery(CHAIN_ID, WETH_ADDRESS, USDC_ADDRESS, 24 * 7);
+
+  // Calculate earnings estimate based on strategy range
+  const earningsEstimate = React.useMemo(() => {
+    if (!poolData || rangePercent === undefined) return null;
+
+    console.log('Calculating earnings with:', {
+      feeGrowth7d: poolData.feeGrowth7d,
+      feeRate: poolData.feeRate,
+      rangePercent,
+      currentPrice: poolData.currentPrice,
+    });
+
+    const TOKEN0_DECIMALS = 18; // WETH
+    const TOKEN1_DECIMALS = 6; // USDC
+    const INVESTMENT_AMOUNT = 100; // USD
+
+    const price = poolData.currentPrice;
+    const priceA = price * (1 - rangePercent);
+    const priceB = price * (1 + rangePercent);
+
+    const sqrtP = Math.sqrt(price);
+    const sqrtPa = Math.sqrt(priceA);
+    const sqrtPb = Math.sqrt(priceB);
+
+    const denominator = (2 * sqrtP) - (price / sqrtPb) - sqrtPa;
+    const liquidityFor100 = denominator > 0 ? INVESTMENT_AMOUNT / denominator : 0;
+
+    const liquidityAdjustment = 10 ** ((TOKEN0_DECIMALS + TOKEN1_DECIMALS) / 2);
+    const liquidityFor100Raw = liquidityFor100 * liquidityAdjustment;
+
+    const weeklyEarningsUsd = poolData.feeGrowth7d * poolData.feeRate * liquidityFor100Raw;
+    const weeklyPercent = (weeklyEarningsUsd / INVESTMENT_AMOUNT) * 100;
+    const apyPercent = weeklyPercent * 52;
+
+    console.log('Calculated earnings:', {
+      liquidityFor100,
+      liquidityFor100Raw,
+      weeklyEarningsUsd,
+      weeklyPercent,
+      apyPercent,
+    });
+
+    return { weeklyUsd: weeklyEarningsUsd, weeklyPercent, apyPercent };
+  }, [poolData, rangePercent]);
 
   React.useEffect(() => {
     if (poolData && !strategyInput) {
@@ -121,7 +176,7 @@ export function StrategyPage(): React.ReactElement {
     }
     if (rule.type === 'PRICE_THRESHOLD' && 'priceUsd' in rule.parameters) {
       return (
-        <Text key={`${rule.type}-${rule.priority}`}>{`${rule.parameters.action}: {rule.parameters.asset} {rule.parameters.operator === 'LESS_THAN' ? '<' : '>'} $${rule.parameters.priceUsd.toLocaleString()}`}</Text>
+        <Text key={`${rule.type}-${rule.priority}`}>{`${rule.parameters.action}: ${rule.parameters.asset} ${rule.parameters.operator === 'LESS_THAN' ? '<' : '>'} $${rule.parameters.priceUsd.toLocaleString()}`}</Text>
       );
     }
     if (rule.type === 'VOLATILITY_TRIGGER' && 'threshold' in rule.parameters) {
@@ -133,7 +188,7 @@ export function StrategyPage(): React.ReactElement {
   };
 
   return (
-    <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
+    <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
         <Text variant='header1'>Create Your Strategy</Text>
         <Text>Define how your agent should manage your liquidity.</Text>
@@ -231,6 +286,25 @@ export function StrategyPage(): React.ReactElement {
                       <Text variant='bold'>{strategyDefinition.summary}</Text>
                       {strategyDefinition.rules.map((rule) => renderRuleDetails(rule))}
                     </Stack>
+                    {earningsEstimate && (
+                      <GlassCard variant='secondary'>
+                        <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Default}>
+                          <Text variant='header4'>💰 Expected Earnings ($100 Investment)</Text>
+                          <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center}>
+                            <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                              <Text variant='note'>Weekly Return</Text>
+                              <Text variant='header2'>{`$${earningsEstimate.weeklyUsd.toFixed(2)}`}</Text>
+                              <Text variant='note'>{`${earningsEstimate.weeklyPercent.toFixed(2)}%`}</Text>
+                            </Stack>
+                            <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                              <Text variant='note'>Estimated APY</Text>
+                              <Text variant='header2'>{`${earningsEstimate.apyPercent.toFixed(1)}%`}</Text>
+                              <Text variant='note'>Annualized</Text>
+                            </Stack>
+                          </Stack>
+                        </Stack>
+                      </GlassCard>
+                    )}
                     <Button variant='primary' text='Deploy Agent' onClicked={onDeployClicked} />
                   </React.Fragment>
                 ) : (

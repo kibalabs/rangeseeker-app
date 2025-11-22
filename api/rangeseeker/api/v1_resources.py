@@ -64,6 +64,8 @@ class PoolData(BaseModel):
     volatility7d: float
     volatilityAnnualized: float
     volatilityRealized: float
+    feeGrowth7d: float
+    feeRate: float
 
 
 class PricePoint(BaseModel):

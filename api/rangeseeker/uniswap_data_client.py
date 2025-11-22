@@ -287,6 +287,50 @@ class UniswapDataClient:
         self._poolAddressCache[cacheKey] = selectedPool
         return selectedPool
 
+    async def get_pool_fee_growth(self, poolAddress: str, hoursBack: int = 168, token0Decimals: int = 18, token1Decimals: int = 6) -> float:
+        cutoffTime = datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(hours=hoursBack)
+        timestampCutoff = cutoffTime.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Ensure poolAddress is treated as binary literal if it's a hex string
+        poolAddressLiteral = f"X'{poolAddress[2:]}'" if poolAddress.startswith('0x') else f"'{poolAddress}'"
+
+        # Calculate fee growth in USD per unit of liquidity
+        # Price P (Token1/Token0) = (sqrtPriceX96 / 2^96)^2 * 10^(dec0 - dec1)
+        # We assume Token1 is the quote asset (e.g. USDC) and Token0 is base (e.g. WETH)
+        # If amount0 > 0 (input is Token0): FeeUSD = amount0 * P / 10^dec0
+        # If amount1 > 0 (input is Token1): FeeUSD = amount1 / 10^dec1
+        # Note: amount0/amount1 are raw integers.
+        # We sum (FeeUSD / Liquidity) for all swaps.
+
+        decimalAdjustment = 10 ** (token0Decimals - token1Decimals)
+
+        sql = f"""
+        SELECT
+            SUM(
+                CASE
+                    WHEN CAST(event."amount0" AS DOUBLE) > 0 THEN
+                        (CAST(event."amount0" AS DOUBLE) / POWER(10, {token0Decimals}) *
+                         POWER(CAST(event."sqrtPriceX96" AS DOUBLE) / 79228162514264337593543950336.0, 2) * {decimalAdjustment}) /
+                        CAST(event."liquidity" AS DOUBLE)
+                    WHEN CAST(event."amount1" AS DOUBLE) > 0 THEN
+                        (CAST(event."amount1" AS DOUBLE) / POWER(10, {token1Decimals})) /
+                        CAST(event."liquidity" AS DOUBLE)
+                    ELSE 0
+                END
+            ) as fee_growth_usd
+        FROM "{self.ampDatasetName}".event__swap
+        WHERE
+            pool_address = {poolAddressLiteral}
+            AND timestamp > TIMESTAMP '{timestampCutoff}'
+            AND CAST(event."liquidity" AS DOUBLE) > 0
+        """
+
+        results = [row async for row in self.ampClient.execute_sql(sql)]
+        if not results:
+            return 0.0
+
+        return float(cast(float, results[0].get('fee_growth_usd', 0.0)))
+
     def calculate_volatility(self, swaps: list[SwapEvent]) -> float:
         if len(swaps) < MIN_DATA_POINTS:
             return 0.0
