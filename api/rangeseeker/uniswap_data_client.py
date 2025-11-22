@@ -142,6 +142,9 @@ class UniswapDataClient:
         secondsInYear = 365 * 24 * 3600
         secondsInPeriod = hoursBack * 3600
 
+        # Ensure poolAddress is treated as binary literal if it's a hex string
+        poolAddressLiteral = f"X'{poolAddress[2:]}'" if poolAddress.startswith('0x') else f"'{poolAddress}'"
+
         sql = f"""
         WITH prices AS (
             SELECT
@@ -149,7 +152,7 @@ class UniswapDataClient:
                 POWER(CAST(event."sqrtPriceX96" AS DOUBLE) / 79228162514264337593543950336.0, 2) as price
             FROM "{self.ampDatasetName}".event__swap
             WHERE
-                pool_address = {poolAddress}
+                pool_address = {poolAddressLiteral}
                 AND timestamp > TIMESTAMP '{timestampCutoff}'
         ),
         returns AS (
@@ -157,6 +160,7 @@ class UniswapDataClient:
                 timestamp,
                 LN(price / LAG(price) OVER (ORDER BY timestamp)) as log_return
             FROM prices
+            WHERE price > 0
         ),
         stats AS (
             SELECT

@@ -104,7 +104,6 @@ export function StrategyPage(): React.ReactElement {
     if (!strategyDefinition) {
       return;
     }
-    // TODO: Navigate to agent creation page with strategy definition
     navigator.navigateTo('/deploy');
   };
 
@@ -113,50 +112,21 @@ export function StrategyPage(): React.ReactElement {
       const rebalanceThreshold = rule.parameters.baseRangePercent * (1 + rule.parameters.rebalanceBuffer);
       return (
         <Stack direction={Direction.Vertical} key={`${rule.type}-${rule.priority}`}>
-          <Text variant='note'>
-            Range: ±
-            {rule.parameters.baseRangePercent}
-            % • Rebalances when price moves
-            {' '}
-            {rebalanceThreshold.toFixed(1)}
-            % from center
-          </Text>
+          <Text>{`Range: ±${rule.parameters.baseRangePercent}% • Rebalances when price moves ${rebalanceThreshold.toFixed(1)}% from center`}</Text>
           {rule.parameters.dynamicWidening && (
-            <Text variant='note'>
-              Widens to ±
-              {rule.parameters.dynamicWidening.widenToPercent}
-              % if volatility &gt;
-              {' '}
-              {rule.parameters.dynamicWidening.volatilityThreshold * 100}
-              %
-            </Text>
+            <Text>{`Widens to ±${rule.parameters.dynamicWidening.widenToPercent}% if volatility > ${rule.parameters.dynamicWidening.volatilityThreshold * 100}%`}</Text>
           )}
         </Stack>
       );
     }
     if (rule.type === 'PRICE_THRESHOLD' && 'priceUsd' in rule.parameters) {
       return (
-        <Text variant='note' key={`${rule.type}-${rule.priority}`}>
-          {rule.parameters.action}
-          :
-          {rule.parameters.asset}
-          {' '}
-          {rule.parameters.operator === 'LESS_THAN' ? '<' : '>'}
-          {' '}
-          $
-          {rule.parameters.priceUsd.toLocaleString()}
-        </Text>
+        <Text key={`${rule.type}-${rule.priority}`}>{`${rule.parameters.action}: {rule.parameters.asset} {rule.parameters.operator === 'LESS_THAN' ? '<' : '>'} $${rule.parameters.priceUsd.toLocaleString()}`}</Text>
       );
     }
     if (rule.type === 'VOLATILITY_TRIGGER' && 'threshold' in rule.parameters) {
       return (
-        <Text variant='note' key={`${rule.type}-${rule.priority}`}>
-          {rule.parameters.action}
-          {' '}
-          if volatility &gt;
-          {rule.parameters.threshold * 100}
-          %
-        </Text>
+        <Text key={`${rule.type}-${rule.priority}`}>{`${rule.parameters.action} if volatility > ${rule.parameters.threshold * 100}%`}</Text>
       );
     }
     return null;
@@ -166,7 +136,7 @@ export function StrategyPage(): React.ReactElement {
     <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
         <Text variant='header1'>Create Your Strategy</Text>
-        <Text variant='note'>Define how your agent should manage your liquidity.</Text>
+        <Text>Define how your agent should manage your liquidity.</Text>
         <Spacing variant={PaddingSize.Wide} />
         <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Start}>
           <Stack direction={Direction.Vertical} shouldAddGutters={true}>
