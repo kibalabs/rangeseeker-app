@@ -11,13 +11,16 @@
     "@kibalabs/web3-react": "^0.2.1-next.13",
     "@tanstack/react-query": "^5.90.10",
     "lightweight-charts": "^5.0.0",
+    "polished": "^4.3.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "styled-components": "6.1.19"
+    "styled-components": "6.1.19",
+    "three": "^0.181.2"
   },
   "devDependencies": {
     "@kibalabs/build": "0.13.3-next.11",
     "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.1"
+    "@types/react-dom": "19.2.1",
+    "@types/three": "^0.181.0"
   }
 }

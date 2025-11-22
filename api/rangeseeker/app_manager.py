@@ -3,6 +3,7 @@ import datetime
 import math
 from typing import cast
 
+from core.caching.dict_cache import DictCache
 from core.exceptions import ForbiddenException
 from core.exceptions import NotFoundException
 from core.exceptions import UnauthorizedException
@@ -54,6 +55,8 @@ class AppManager(Authorizer):
         self.strategyManager = strategyManager
         self.pythClient = pythClient
         self._signatureSignerMap: dict[str, str] = {}
+        self._poolDataCache = DictCache()
+        self._poolHistoricalDataCache = DictCache()
 
     async def _retrieve_signature_signer_address(self, signatureString: str) -> str:
         if signatureString in self._signatureSignerMap:
@@ -164,6 +167,10 @@ class AppManager(Authorizer):
     async def get_pool_data(self, chainId: int, token0Address: str, token1Address: str) -> PoolData:
         token0Address = chain_util.normalize_address(token0Address)
         token1Address = chain_util.normalize_address(token1Address)
+        cacheKey = f'pool_data:{chainId}:{token0Address}:{token1Address}'
+        cachedData = await self._poolDataCache.get(key=cacheKey)
+        if cachedData is not None:
+            return PoolData.model_validate_json(cachedData)
         pool = await self.strategyManager.uniswapClient.get_pool(token0Address=token0Address, token1Address=token1Address)
         poolAddress = pool.address
         currentPrice = await self.strategyManager.uniswapClient.get_current_price(poolAddress=poolAddress)
@@ -171,7 +178,7 @@ class AppManager(Authorizer):
         volatilityData7d = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=168)
         feeGrowth7d = await self.strategyManager.uniswapClient.get_pool_fee_growth(poolAddress=poolAddress, hoursBack=168)
         feeRate = pool.fee / 1_000_000.0
-        return PoolData(
+        poolData = PoolData(
             chainId=chainId,
             token0Address=token0Address,
             token1Address=token1Address,
@@ -184,10 +191,16 @@ class AppManager(Authorizer):
             feeGrowth7d=feeGrowth7d,
             feeRate=feeRate,
         )
+        await self._poolDataCache.set(key=cacheKey, value=poolData.model_dump_json(), expirySeconds=60 * 10)
+        return poolData
 
     async def get_pool_historical_data(self, chainId: int, token0Address: str, token1Address: str, hoursBack: int) -> PoolHistoricalData:
         token0Address = chain_util.normalize_address(token0Address)
         token1Address = chain_util.normalize_address(token1Address)
+        cacheKey = f'pool_historical_data:{chainId}:{token0Address}:{token1Address}:{hoursBack}'
+        cachedData = await self._poolHistoricalDataCache.get(key=cacheKey)
+        if cachedData is not None:
+            return PoolHistoricalData.model_validate_json(cachedData)
         pool = await self.strategyManager.uniswapClient.get_pool(token0Address=token0Address, token1Address=token1Address)
         poolAddress = pool.address
         swaps = await self.strategyManager.uniswapClient.get_pool_swaps(poolAddress=poolAddress, hoursBack=hoursBack)
@@ -200,13 +213,15 @@ class AppManager(Authorizer):
                     price=price,
                 )
             )
-        return PoolHistoricalData(
+        poolHistoricalData = PoolHistoricalData(
             chainId=chainId,
             token0Address=token0Address,
             token1Address=token1Address,
             poolAddress=poolAddress,
             pricePoints=pricePoints,
         )
+        await self._poolHistoricalDataCache.set(key=cacheKey, value=poolHistoricalData.model_dump_json(), expirySeconds=60 * 10)
+        return poolHistoricalData
 
     async def preview_deposit(self, userId: str, agentId: str, token0Amount: float, token1Amount: float) -> PreviewDeposit:
         agent = await self.get_agent(userId=userId, agentId=agentId)

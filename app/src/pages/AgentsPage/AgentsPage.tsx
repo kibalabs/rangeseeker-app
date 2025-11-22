@@ -1,37 +1,12 @@
 import React from 'react';
 
 import { useInitialization, useNavigator } from '@kibalabs/core-react';
-import { Alignment, Direction, LoadingSpinner, PaddingSize, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
+import { Alignment, Box, Direction, EqualGrid, LoadingSpinner, PaddingSize, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
 import styled from 'styled-components';
 
 import { useAuth } from '../../AuthContext';
 import { Agent } from '../../client/resources';
-import { GlassCard } from '../../components/GlassCard';
 import { useGlobals } from '../../GlobalsContext';
-
-const AgentCard = styled(GlassCard)`
-  cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-
-  &:hover {
-    transform: translateY(-4px);
-    border-color: #2EE4E3;
-  }
-`;
-
-const CreateCard = styled(GlassCard)`
-  cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  border: 1px dashed rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.02);
-
-  &:hover {
-    transform: translateY(-4px);
-    border-color: #2EE4E3;
-    background: rgba(46, 228, 227, 0.05);
-  }
-`;
 
 const IconBox = styled.div`
   width: 60px;
@@ -44,16 +19,6 @@ const IconBox = styled.div`
   font-size: 30px;
   border: 1px solid #2EE4E3;
   margin-bottom: 16px;
-`;
-
-const StatusBadge = styled.div`
-  padding: 4px 12px;
-  background-color: rgba(46, 228, 227, 0.2);
-  border-radius: 20px;
-  border: 1px solid rgba(46, 228, 227, 0.5);
-  font-size: 12px;
-  color: #2EE4E3;
-  font-weight: bold;
 `;
 
 const ClickableBox = styled.div`
@@ -112,55 +77,46 @@ export function AgentsPage(): React.ReactElement {
     <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} paddingVertical={PaddingSize.Wide2} paddingHorizontal={PaddingSize.Wide}>
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
         <Text variant='header1'>Your Agents</Text>
-        <Text variant='note'>Manage your autonomous liquidity agents.</Text>
         <Spacing variant={PaddingSize.Wide} />
-        <Stack direction={Direction.Horizontal} isFullWidth={true} shouldAddGutters={true} childAlignment={Alignment.Start} contentAlignment={Alignment.Start} shouldWrapItems={true}>
-          {!agents ? (
-            <Stack direction={Direction.Vertical} isFullWidth={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} padding={PaddingSize.Wide3}>
-              <LoadingSpinner />
-            </Stack>
-          ) : (
-            <React.Fragment>
-              {agents.map((agent: Agent): React.ReactElement => (
-                <ClickableBox key={agent.agentId} onClick={() => onAgentClicked(agent.agentId)}>
-                  <AgentCard>
-                    <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center}>
-                      <Stack direction={Direction.Horizontal} isFullWidth={true} contentAlignment={Alignment.End}>
-                        <StatusBadge>Active</StatusBadge>
+        {!agents ? (
+          <Stack direction={Direction.Vertical} isFullWidth={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} padding={PaddingSize.Wide3}>
+            <LoadingSpinner />
+          </Stack>
+        ) : (
+          <EqualGrid childSizeResponsive={{ base: 12, medium: 6, extraLarge: 4 }} childAlignment={Alignment.Fill} contentAlignment={Alignment.Start}>
+            {agents.map((agent: Agent): React.ReactElement => (
+              <ClickableBox key={agent.agentId} onClick={() => onAgentClicked(agent.agentId)}>
+                <Box variant='card'>
+                  <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center}>
+                    <IconBox>{agent.emoji}</IconBox>
+                    <Text variant='header3'>{agent.name}</Text>
+                    <Spacing variant={PaddingSize.Default} />
+                    <Stack direction={Direction.Horizontal} shouldAddGutters={true}>
+                      <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                        <Text variant='note'>TVL</Text>
+                        <Text variant='bold'>$0</Text>
                       </Stack>
-                      <IconBox>{agent.emoji}</IconBox>
-                      <Text variant='header3'>{agent.name}</Text>
-                      <Text variant='note' alignment={TextAlignment.Center}>Strategy</Text>
-                      <Spacing variant={PaddingSize.Default} />
-                      <Stack direction={Direction.Horizontal} shouldAddGutters={true}>
-                        <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                          <Text variant='note'>TVL</Text>
-                          <Text variant='bold'>$0</Text>
-                        </Stack>
-                        <Divider />
-                        <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
-                          <Text variant='note'>APY</Text>
-                          <Text variant='bold'><ColoredText color='#2EE4E3'>0%</ColoredText></Text>
-                        </Stack>
+                      <Divider />
+                      <Stack direction={Direction.Vertical} childAlignment={Alignment.Center}>
+                        <Text variant='note'>APY</Text>
+                        <Text variant='bold'><ColoredText color='#2EE4E3'>0%</ColoredText></Text>
                       </Stack>
                     </Stack>
-                  </AgentCard>
-                </ClickableBox>
-              ))}
-              <ClickableBox onClick={onCreateClicked}>
-                <CreateCard>
-                  <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} isFullHeight={true} minHeight='250px'>
-                    <CreateIconBox>
-                      +
-                    </CreateIconBox>
-                    <Text variant='header3'><ColoredText color='rgba(255,255,255,0.7)'>Create New Agent</ColoredText></Text>
-                    <Text variant='note' alignment={TextAlignment.Center}>Deploy a new strategy</Text>
                   </Stack>
-                </CreateCard>
+                </Box>
               </ClickableBox>
-            </React.Fragment>
-          )}
-        </Stack>
+            ))}
+            <ClickableBox onClick={onCreateClicked}>
+              <Box variant='card'>
+                <Stack direction={Direction.Vertical} padding={PaddingSize.Wide} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} isFullHeight={true} minHeight='200px'>
+                  <CreateIconBox>+</CreateIconBox>
+                  <Text alignment={TextAlignment.Center} variant='header3'><ColoredText color='rgba(255,255,255,0.7)'>Create New Agent</ColoredText></Text>
+                  <Text alignment={TextAlignment.Center}>Deploy a new strategy</Text>
+                </Stack>
+              </Box>
+            </ClickableBox>
+          </EqualGrid>
+        )}
       </Stack>
     </Stack>
   );

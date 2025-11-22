@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { ISingleAnyChildProps, useLocation, useNavigator, usePreviousValue } from '@kibalabs/core-react';
-import { Alignment, Box, Button, Direction, getVariant, HidingView, IconButton, KibaIcon, LinkBase, PaddingSize, ResponsiveHidingView, ScreenSize, Stack, Text } from '@kibalabs/ui-react';
+import { Alignment, Box, Button, Direction, getVariant, HidingView, IconButton, Image, KibaIcon, LinkBase, PaddingSize, ResponsiveHidingView, ScreenSize, Stack, Text } from '@kibalabs/ui-react';
 import { useWeb3Account } from '@kibalabs/web3-react';
 
 import { useAuth } from '../AuthContext';
@@ -14,7 +14,7 @@ interface IMenuViewProps {
 function MenuView(props: IMenuViewProps): React.ReactElement {
   const location = useLocation();
   return (
-    <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true}>
+    <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true} contentAlignment={Alignment.Start}>
       <Button
         variant={getVariant('sidebar', location.pathname === '/account' && 'sidebarActive')}
         text='Account'
@@ -206,8 +206,7 @@ export function ContainingView(props: IContainingViewProps): React.ReactElement 
         <Box variant='navBar' zIndex={999} shouldClipContent={true} isFullWidth={true}>
           <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} isFullWidth={true} isFullHeight={false} shouldAddGutters={true}>
             <LinkBase target='/'>
-              {/* <Image source='/assets/icon.png' alternativeText='logo' height='32px' fitType='contain' /> */}
-              <Text variant='bold'>Range Seeker</Text>
+              <Image source='/assets/icon.svg' alternativeText='logo' height='32px' fitType='contain' />
             </LinkBase>
             <Stack.Item growthFactor={1} shrinkFactor={1} shouldShrinkBelowContentSize={true}>
               <Box shouldClipContent={true}>
@@ -242,9 +241,9 @@ export function ContainingView(props: IContainingViewProps): React.ReactElement 
           <Stack direction={Direction.Vertical} childAlignment={Alignment.Fill} contentAlignment={Alignment.Start} isFullHeight={true} isFullWidth={true}>
             <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center} contentAlignment={Alignment.Start} shouldAddGutters={true} paddingHorizontal={PaddingSize.Wide} paddingVertical={PaddingSize.Wide}>
               <LinkBase target='/'>
-                {/* <Image source='/assets/icon.png' alternativeText='logo' height='32px' fitType='contain' /> */}
-                <Text variant='bold-small-branded'>RANGE SEEKER</Text>
+                <Image source='/assets/icon.svg' alternativeText='logo' height='32px' fitType='contain' />
               </LinkBase>
+              <Image source='/assets/wordmark.svg' alternativeText='wordmark' height='32px' fitType='contain' />
             </Stack>
             <MenuView
               onMenuItemClicked={onMenuItemClicked}

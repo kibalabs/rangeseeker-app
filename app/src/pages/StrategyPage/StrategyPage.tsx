@@ -6,7 +6,6 @@ import styled from 'styled-components';
 
 import { useAuth } from '../../AuthContext';
 import { StrategyDefinition, StrategyRule } from '../../client/resources';
-import { GlassCard } from '../../components/GlassCard';
 import { PriceChart } from '../../components/PriceChart';
 import { useGlobals } from '../../GlobalsContext';
 import { useStrategyCreation } from '../../StrategyCreationContext';
@@ -289,7 +288,7 @@ export function StrategyPage(): React.ReactElement {
         <Spacing variant={PaddingSize.Wide} />
         <Stack direction={Direction.Horizontal} isFullWidth={true} shouldAddGutters={true} childAlignment={Alignment.Start} contentAlignment={Alignment.Start}>
           <Stack.Item growthFactor={1} shrinkFactor={1}>
-            <GlassCard>
+            <Box variant='card'>
               <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
                 <Text variant='header3'>Strategy</Text>
                 {poolData ? (
@@ -326,10 +325,10 @@ export function StrategyPage(): React.ReactElement {
                 <Button variant='primary' text={isGenerating ? 'Generating...' : 'Generate Strategy'} onClicked={onGenerateClicked} isEnabled={!isGenerating} />
                 {error && <Text variant='error'>{error}</Text>}
               </Stack>
-            </GlassCard>
+            </Box>
           </Stack.Item>
           <Stack.Item growthFactor={1} shrinkFactor={1}>
-            <GlassCard>
+            <Box variant='card'>
               <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
                 <Text variant='header3'>Price Chart &amp; Strategy Preview</Text>
                 <Box width='100%' height='300px'>
@@ -346,7 +345,7 @@ export function StrategyPage(): React.ReactElement {
                       {strategyDefinition.rules.map((rule) => renderRuleDetails(rule))}
                     </Stack>
                     {earningsEstimate && (
-                      <GlassCard variant='secondary'>
+                      <Box variant='card'>
                         <Stack direction={Direction.Vertical} shouldAddGutters={true}>
                           <Text variant='bold'>💰 Estimated earnings on $100 investment</Text>
                           <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center} contentAlignment={Alignment.Center} defaultGutter={PaddingSize.Wide2}>
@@ -364,7 +363,7 @@ export function StrategyPage(): React.ReactElement {
                           </Stack>
                           <Text variant='note' alignment={TextAlignment.Center}>Range based on time-in-range and gas costs</Text>
                         </Stack>
-                      </GlassCard>
+                      </Box>
                     )}
                     <Button variant='primary' text='Deploy Agent' onClicked={onDeployClicked} />
                   </React.Fragment>
@@ -372,7 +371,7 @@ export function StrategyPage(): React.ReactElement {
                   <Text variant='note' alignment={TextAlignment.Center}>Generate a strategy to see overlay details</Text>
                 )}
               </Stack>
-            </GlassCard>
+            </Box>
           </Stack.Item>
         </Stack>
       </Stack>

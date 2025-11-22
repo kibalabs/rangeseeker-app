@@ -9,7 +9,6 @@ import styled from 'styled-components';
 
 import { useAuth } from '../../AuthContext';
 import { Agent, PreviewDeposit, Strategy, Wallet } from '../../client/resources';
-import { GlassCard } from '../../components/GlassCard';
 import { PriceChart } from '../../components/PriceChart';
 import { useGlobals } from '../../GlobalsContext';
 
@@ -233,7 +232,7 @@ export function DashboardPage(): React.ReactElement {
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
         <Text variant='header1'>Dashboard</Text>
         <Spacing variant={PaddingSize.Wide} />
-        <GlassCard>
+        <Box variant='card'>
           <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
             <FlexRow>
               <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center}>
@@ -281,7 +280,7 @@ export function DashboardPage(): React.ReactElement {
             </Stack>
             <Spacing variant={PaddingSize.Wide} />
             <Text variant='header4'>Deposit Funds</Text>
-            <GlassCard>
+            <Box variant='card'>
               <Stack direction={Direction.Vertical} padding={PaddingSize.Default} shouldAddGutters={true} maxWidth='400px'>
                 <Stack direction={Direction.Vertical} shouldAddGutters={true}>
                   <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
@@ -336,7 +335,7 @@ export function DashboardPage(): React.ReactElement {
                   isEnabled={!isDepositing && (usdcDepositAmount.length > 0 || wethDepositAmount.length > 0)}
                 />
               </Stack>
-            </GlassCard>
+            </Box>
             <Spacing variant={PaddingSize.Default} />
             <Box width='100%' height='300px'>
               <PriceChart />
@@ -353,7 +352,7 @@ export function DashboardPage(): React.ReactElement {
               </ActivityItem>
             </Stack>
           </Stack>
-        </GlassCard>
+        </Box>
       </Stack>
     </Stack>
   );
