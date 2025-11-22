@@ -1,4 +1,3 @@
-
 import { RequestData, ResponseData } from '@kibalabs/core';
 
 import * as Resources from './resources';
@@ -199,6 +198,42 @@ export class ListUserStrategiesResponse extends ResponseData {
   public static fromObject = (obj: RawObject): ListUserStrategiesResponse => {
     return new ListUserStrategiesResponse(
       (obj.strategies as RawObject[]).map((strategy: RawObject): Resources.Strategy => Resources.Strategy.fromObject(strategy)),
+    );
+  };
+}
+
+export class CreateAgentRequest extends RequestData {
+  public constructor(
+    readonly name: string,
+    readonly emoji: string,
+    readonly strategyName: string,
+    readonly strategyDescription: string,
+    readonly strategyDefinition: Resources.StrategyDefinition,
+  ) {
+    super();
+  }
+
+  public toObject = (): RawObject => {
+    return {
+      name: this.name,
+      emoji: this.emoji,
+      strategyName: this.strategyName,
+      strategyDescription: this.strategyDescription,
+      strategyDefinition: this.strategyDefinition,
+    };
+  };
+}
+
+export class CreateAgentResponse extends ResponseData {
+  public constructor(
+    readonly agent: Resources.Agent,
+  ) {
+    super();
+  }
+
+  public static fromObject = (obj: RawObject): CreateAgentResponse => {
+    return new CreateAgentResponse(
+      Resources.Agent.fromObject(obj.agent as RawObject),
     );
   };
 }

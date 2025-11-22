@@ -1,6 +1,8 @@
 import sqlalchemy
 from sqlalchemy.dialects import postgresql as sqlalchemy_psql
 
+from rangeseeker.model import Agent
+from rangeseeker.model import AgentWallet
 from rangeseeker.model import Strategy
 from rangeseeker.model import User
 from rangeseeker.model import UserWallet
@@ -51,3 +53,34 @@ StrategiesTable = sqlalchemy.Table(
 )
 
 StrategiesRepository = EntityRepository(table=StrategiesTable, modelClass=Strategy)
+
+
+AgentsTable = sqlalchemy.Table(
+    'tbl_agents',
+    metadata,
+    sqlalchemy.Column(key='agentId', name='id', type_=sqlalchemy_psql.UUID, primary_key=True),
+    sqlalchemy.Column(key='createdDate', name='created_date', type_=sqlalchemy.DateTime, nullable=False),
+    sqlalchemy.Column(key='updatedDate', name='updated_date', type_=sqlalchemy.DateTime, nullable=False),
+    sqlalchemy.Column(key='userId', name='user_id', type_=sqlalchemy_psql.UUID, nullable=False),
+    sqlalchemy.Column(key='strategyId', name='strategy_id', type_=sqlalchemy_psql.UUID, nullable=False),
+    sqlalchemy.Column(key='name', name='name', type_=sqlalchemy.Text, nullable=False),
+    sqlalchemy.Column(key='emoji', name='emoji', type_=sqlalchemy.Text, nullable=False),
+)
+
+AgentsRepository = EntityRepository(table=AgentsTable, modelClass=Agent)
+
+
+AgentWalletsTable = sqlalchemy.Table(
+    'tbl_agent_wallets',
+    metadata,
+    sqlalchemy.Column(key='agentWalletId', name='id', type_=sqlalchemy_psql.UUID, primary_key=True),
+    sqlalchemy.Column(key='createdDate', name='created_date', type_=sqlalchemy.DateTime, nullable=False),
+    sqlalchemy.Column(key='updatedDate', name='updated_date', type_=sqlalchemy.DateTime, nullable=False),
+    sqlalchemy.Column(key='agentId', name='agent_id', type_=sqlalchemy_psql.UUID, nullable=False),
+    sqlalchemy.Column(key='walletAddress', name='wallet_address', type_=sqlalchemy.Text, nullable=False),
+    sqlalchemy.Column(key='delegatedSmartWallet', name='delegated_smart_wallet', type_=sqlalchemy.Text, nullable=True),
+    sqlalchemy.UniqueConstraint('agentId', name='tbl_agent_wallets_ux_agent_id'),
+    sqlalchemy.UniqueConstraint('walletAddress', name='tbl_agent_wallets_ux_wallet_address'),
+)
+
+AgentWalletsRepository = EntityRepository(table=AgentWalletsTable, modelClass=AgentWallet)

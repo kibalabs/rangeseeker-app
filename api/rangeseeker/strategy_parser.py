@@ -4,7 +4,7 @@ from core.exceptions import KibaException
 from core.util.typing_util import JsonObject
 from pydantic import BaseModel
 
-from rangeseeker.gemini_llm import GeminiLLM
+from rangeseeker.external.gemini_llm import GeminiLLM
 
 
 class DynamicWidening(BaseModel):

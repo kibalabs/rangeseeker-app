@@ -1,12 +1,12 @@
 from core.store.database import Database
 from core.util import json_util
 
+from rangeseeker.external.uniswap_data_client import UniswapDataClient
 from rangeseeker.model import Strategy
 from rangeseeker.store import schema
 from rangeseeker.store.entity_repository import UUIDFieldFilter
 from rangeseeker.strategy_parser import StrategyDefinition
 from rangeseeker.strategy_parser import StrategyParser
-from rangeseeker.uniswap_data_client import UniswapDataClient
 
 POOL_ADDRESS = '0xd0b53D9277642d899DF5C87A3966A349A798F224'
 

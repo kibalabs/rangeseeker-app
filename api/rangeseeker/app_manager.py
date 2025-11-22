@@ -14,8 +14,10 @@ from rangeseeker.api.v1_resources import AuthToken
 from rangeseeker.api.v1_resources import PoolData
 from rangeseeker.api.v1_resources import PoolHistoricalData
 from rangeseeker.api.v1_resources import PricePoint
+from rangeseeker.model import Agent
 from rangeseeker.model import User
 from rangeseeker.model import UserWallet
+from rangeseeker.model import Wallet
 from rangeseeker.strategy_manager import StrategyManager
 from rangeseeker.strategy_parser import StrategyDefinition
 from rangeseeker.user_manager import UserManager
@@ -24,7 +26,12 @@ w3 = Web3()
 
 
 class AppManager(Authorizer):
-    def __init__(self, database: Database, userManager: UserManager, strategyManager: StrategyManager) -> None:
+    def __init__(
+        self,
+        database: Database,
+        userManager: UserManager,
+        strategyManager: StrategyManager,
+    ) -> None:
         self.database = database
         self.userManager = userManager
         self.strategyManager = strategyManager
@@ -77,6 +84,25 @@ class AppManager(Authorizer):
     async def get_user_wallet(self, userId: str) -> UserWallet:
         return await self.userManager.get_user_wallet(userId=userId)
 
+    async def list_agents(self, userId: str) -> list[Agent]:
+        return await self.userManager.list_agents_by_user_id(userId=userId)
+
+    async def get_agent(self, userId: str, agentId: str) -> Agent:
+        return await self.userManager.get_agent(userId=userId, agentId=agentId)
+
+    async def create_agent(self, userId: str, name: str, emoji: str, strategyName: str, strategyDescription: str, strategyDefinition: StrategyDefinition) -> Agent:
+        strategy = await self.strategyManager.create_strategy(userId=userId, name=strategyName, description=strategyDescription, strategyDefinition=strategyDefinition)
+        return await self.userManager.create_agent(userId=userId, name=name, emoji=emoji, strategyId=strategy.strategyId)
+
+    async def get_agent_wallet(self, userId: str, agentId: str) -> Wallet:
+        agentWallet = await self.userManager.get_agent_wallet(userId=userId, agentId=agentId)
+        # TODO(krishan711): add asset balances
+        return Wallet(
+            walletAddress=agentWallet.walletAddress,
+            assetBalances=[],
+            delegatedSmartWallet=agentWallet.delegatedSmartWallet,
+        )
+
     async def parse_strategy(self, description: str) -> StrategyDefinition:
         return await self.strategyManager.parse_strategy(description=description)
 
@@ -85,13 +111,11 @@ class AppManager(Authorizer):
         token1Address = chain_util.normalize_address(token1Address)
         pool = await self.strategyManager.uniswapClient.get_pool(token0Address=token0Address, token1Address=token1Address)
         poolAddress = pool.address
-
         currentPrice = await self.strategyManager.uniswapClient.get_current_price(poolAddress=poolAddress)
         volatilityData24h = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=24)
         volatilityData7d = await self.strategyManager.uniswapClient.get_pool_volatility(poolAddress=poolAddress, hoursBack=168)
         feeGrowth7d = await self.strategyManager.uniswapClient.get_pool_fee_growth(poolAddress=poolAddress, hoursBack=168)
         feeRate = pool.fee / 1_000_000.0
-
         return PoolData(
             chainId=chainId,
             token0Address=token0Address,
@@ -111,7 +135,6 @@ class AppManager(Authorizer):
         token1Address = chain_util.normalize_address(token1Address)
         pool = await self.strategyManager.uniswapClient.get_pool(token0Address=token0Address, token1Address=token1Address)
         poolAddress = pool.address
-
         swaps = await self.strategyManager.uniswapClient.get_pool_swaps(poolAddress=poolAddress, hoursBack=hoursBack)
         pricePoints = []
         for swap in swaps:

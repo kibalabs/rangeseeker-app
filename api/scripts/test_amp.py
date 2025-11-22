@@ -3,7 +3,7 @@ import asyncio
 import json
 import os
 
-from rangeseeker.amp_client import AmpClient
+from rangeseeker.external.amp_client import AmpClient
 
 AMP_TOKEN = os.environ['THEGRAPHAMP_API_KEY']
 QUERY = """

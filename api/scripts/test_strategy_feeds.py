@@ -14,9 +14,9 @@ from core.requester import Requester
 from core.util.typing_util import JsonObject
 
 import _path_fix  # type: ignore[import-not-found] # noqa: F401
-from rangeseeker.amp_client import AmpClient
-from rangeseeker.amp_client import SqlValue
-from rangeseeker.gemini_llm import GeminiLLM
+from rangeseeker.external.amp_client import AmpClient
+from rangeseeker.external.amp_client import SqlValue
+from rangeseeker.external.gemini_llm import GeminiLLM
 
 # Hardcoded pool configuration (WETH/USDC 0.05% on Base)
 POOL_ADDRESS = '0xd0b53D9277642d899DF5C87A3966A349A798F224'

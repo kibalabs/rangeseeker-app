@@ -9,6 +9,7 @@ from rangeseeker.api import v1_endpoints as endpoints
 from rangeseeker.api import v1_resources as resources
 from rangeseeker.api.authorizer import authorize_signature
 from rangeseeker.app_manager import AppManager
+from rangeseeker.strategy_parser import StrategyDefinition as ParserStrategyDefinition
 
 
 def create_v1_routes(appManager: AppManager) -> list[Route]:
@@ -39,10 +40,45 @@ def create_v1_routes(appManager: AppManager) -> list[Route]:
         poolHistoricalData = await appManager.get_pool_historical_data(chainId=request.data.chainId, token0Address=request.data.token0Address, token1Address=request.data.token1Address, hoursBack=request.data.hoursBack)
         return endpoints.GetPoolHistoricalDataResponse(poolHistoricalData=resources.PoolHistoricalData.model_validate(poolHistoricalData))
 
+    @json_route(requestType=endpoints.EmptyRequest, responseType=endpoints.ListAgentsResponse)
+    @authorize_signature(authorizer=appManager)
+    async def list_agents(request: KibaApiRequest[endpoints.EmptyRequest]) -> endpoints.ListAgentsResponse:
+        agents = await appManager.list_agents(userId=typing.cast(BasicAuthentication, request.authBasic).username)
+        return endpoints.ListAgentsResponse(agents=[resources.Agent.model_validate(agent.model_dump()) for agent in agents])
+
+    @json_route(requestType=endpoints.CreateAgentRequest, responseType=endpoints.CreateAgentResponse)
+    @authorize_signature(authorizer=appManager)
+    async def create_agent(request: KibaApiRequest[endpoints.CreateAgentRequest]) -> endpoints.CreateAgentResponse:
+        agent = await appManager.create_agent(
+            userId=typing.cast(BasicAuthentication, request.authBasic).username,
+            name=request.data.name,
+            emoji=request.data.emoji,
+            strategyName=request.data.strategyName,
+            strategyDescription=request.data.strategyDescription,
+            strategyDefinition=ParserStrategyDefinition.model_validate(request.data.strategyDefinition.model_dump())
+        )
+        return endpoints.CreateAgentResponse(agent=resources.Agent.model_validate(agent.model_dump()))
+
+    @json_route(requestType=endpoints.GetAgentRequest, responseType=endpoints.GetAgentResponse)
+    @authorize_signature(authorizer=appManager)
+    async def get_agent(request: KibaApiRequest[endpoints.GetAgentRequest]) -> endpoints.GetAgentResponse:
+        agent = await appManager.get_agent(userId=typing.cast(BasicAuthentication, request.authBasic).username, agentId=request.data.agentId)
+        return endpoints.GetAgentResponse(agent=resources.Agent.model_validate(agent.model_dump()))
+
+    @json_route(requestType=endpoints.GetAgentWalletRequest, responseType=endpoints.GetAgentWalletResponse)
+    @authorize_signature(authorizer=appManager)
+    async def get_agent_wallet(request: KibaApiRequest[endpoints.GetAgentWalletRequest]) -> endpoints.GetAgentWalletResponse:
+        wallet = await appManager.get_agent_wallet(userId=typing.cast(BasicAuthentication, request.authBasic).username, agentId=request.data.agentId)
+        return endpoints.GetAgentWalletResponse(wallet=resources.Wallet.model_validate(wallet.model_dump()))
+
     return [
         Route('/users/login-with-wallet', user_login_with_wallet_address, methods=['POST']),
         Route('/users', create_user, methods=['POST']),
         Route('/strategies/parse', parse_strategy, methods=['POST']),
         Route('/pools', get_pool_data, methods=['GET']),
         Route('/pools/historical-data', get_pool_historical_data, methods=['GET']),
+        Route('/agents', list_agents, methods=['GET']),
+        Route('/agents', create_agent, methods=['POST']),
+        Route('/agents/{agentId}', get_agent, methods=['GET']),
+        Route('/agents/{agentId}/wallet', get_agent_wallet, methods=['GET']),
     ]
