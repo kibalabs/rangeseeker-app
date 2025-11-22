@@ -8,7 +8,7 @@ class LoginWithWalletRequest(BaseModel):
 
 
 class LoginWithWalletResponse(BaseModel):
-    user: resources.User | None
+    user: resources.User
 
 
 class CreateUserRequest(BaseModel):

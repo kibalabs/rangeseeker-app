@@ -21,14 +21,14 @@ export class LoginWithWalletRequest extends RequestData {
 
 export class LoginWithWalletResponse extends ResponseData {
   public constructor(
-    readonly user: Resources.User | null,
+    readonly user: Resources.User,
   ) {
     super();
   }
 
   public static fromObject = (obj: RawObject): LoginWithWalletResponse => {
     return new LoginWithWalletResponse(
-      obj.user ? Resources.User.fromObject(obj.user as RawObject) : null,
+      Resources.User.fromObject(obj.user as RawObject),
     );
   };
 }

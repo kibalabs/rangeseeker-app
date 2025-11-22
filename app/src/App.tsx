@@ -14,6 +14,7 @@ import { AgentsPage } from './pages/AgentsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DeployPage } from './pages/DeployPage';
 import { HomePage } from './pages/HomePage';
+import { RegisterPage } from './pages/RegisterPage';
 import { StrategyPage } from './pages/StrategyPage';
 import { buildRangeSeekerTheme } from './theme';
 
@@ -38,6 +39,7 @@ const routes: IRoute<IGlobals>[] = [
   { path: '/create', page: StrategyPage },
   { path: '/deploy', page: DeployPage },
   { path: '/dashboard', page: DashboardPage },
+  { path: '/register', page: RegisterPage },
   { path: '/', page: HomePage },
 ];
 

@@ -43,6 +43,7 @@ export function ContainingView(props: IContainingViewProps): React.ReactElement 
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [isMenuOpen, setIsMenuOpen] = React.useState<boolean>(false);
   const [loginError, setLoginError] = React.useState<string | null>(null);
+  const [needsRegistration, setNeedsRegistration] = React.useState<boolean>(false);
   const [isRestoringDestination, setIsRestoringDestination] = React.useState<boolean>(false);
 
   React.useEffect((): void => {
@@ -111,15 +112,27 @@ export function ContainingView(props: IContainingViewProps): React.ReactElement 
       return;
     }
     if (!isAuthenticated) {
+      // NOTE(krishan711): user needs registration
+      if (needsRegistration) {
+        if (location.pathname !== '/register') {
+          navigator.navigateTo('/register');
+        }
+        setIsLoading(false);
+        return;
+      }
       // NOTE(krishan711): not authenticated so try login
       if (!loginError) {
         loginWithWallet().catch((error: unknown): void => {
           console.error(`Error during loginWithWallet: ${error}`);
           const errorMessage = error instanceof Error ? error.message : 'Failed to login with wallet';
-          setLoginError(errorMessage);
-          if (location.pathname !== '/') {
-            storeIntendedDestination();
-            navigator.navigateTo('/');
+          if (errorMessage === 'NO_USER') {
+            setNeedsRegistration(true);
+          } else {
+            setLoginError(errorMessage);
+            if (location.pathname !== '/') {
+              storeIntendedDestination();
+              navigator.navigateTo('/');
+            }
           }
           setIsLoading(false);
         });
@@ -128,6 +141,10 @@ export function ContainingView(props: IContainingViewProps): React.ReactElement 
     }
 
     // NOTE(krishan711): fully authed so they will see the app
+    setNeedsRegistration(false);
+    if (location.pathname === '/register') {
+      navigator.navigateTo('/');
+    }
     setIsLoading(false);
     if (location.pathname === '/') {
       if (!isRestoringDestination && !restoreIntendedDestination()) {
