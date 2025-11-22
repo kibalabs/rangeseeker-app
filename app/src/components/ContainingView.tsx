@@ -16,6 +16,16 @@ function MenuView(props: IMenuViewProps): React.ReactElement {
   return (
     <Stack direction={Direction.Vertical} isFullWidth={true} isFullHeight={true} isScrollableVertically={true}>
       <Button
+        variant={getVariant('sidebar', location.pathname === '/account' && 'sidebarActive')}
+        text='Account'
+        onClicked={props.onMenuItemClicked}
+        target='/account'
+        isFullWidth={true}
+        contentAlignment={Alignment.Start}
+        isTextFullWidth={false}
+        iconLeft={<KibaIcon iconId='ion-person-outline' variant='small' />}
+      />
+      <Button
         variant={getVariant('sidebar', location.pathname === '/agents' && 'sidebarActive')}
         text='Agents'
         onClicked={props.onMenuItemClicked}

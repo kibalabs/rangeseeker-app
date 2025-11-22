@@ -70,7 +70,12 @@ export function RegisterPage(): React.ReactElement {
         <Spacing variant={PaddingSize.Wide} />
         {account && (
           <Stack direction={Direction.Horizontal} shouldAddGutters={true} isFullWidth={false} contentAlignment={Alignment.Start} childAlignment={Alignment.Center}>
-            <Text>Wallet: {account.address.slice(0, 6)}...{account.address.slice(-4)}</Text>
+            <Text>
+              Wallet:
+              {account.address.slice(0, 6)}
+              ...
+              {account.address.slice(-4)}
+            </Text>
             {responsiveScreenSize === ScreenSize.Base || responsiveScreenSize === ScreenSize.Small ? (
               <IconButton
                 variant='tertiary'

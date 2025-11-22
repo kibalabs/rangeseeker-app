@@ -10,6 +10,7 @@ import { AuthProvider } from './AuthContext';
 import { RangeSeekerClient } from './client/client';
 import { ContainingView } from './components/ContainingView';
 import { GlobalsProvider, IGlobals } from './GlobalsContext';
+import { AccountPage } from './pages/AccountPage';
 import { AgentsPage } from './pages/AgentsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DeployPage } from './pages/DeployPage';
@@ -35,6 +36,7 @@ const globals: IGlobals = {
 };
 
 const routes: IRoute<IGlobals>[] = [
+  { path: '/account', page: AccountPage },
   { path: '/agents', page: AgentsPage },
   { path: '/create', page: StrategyPage },
   { path: '/deploy', page: DeployPage },

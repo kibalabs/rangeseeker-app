@@ -1,4 +1,4 @@
-/* eslint-disable class-methods-use-this */
+
 import { RequestData, ResponseData } from '@kibalabs/core';
 
 import * as Resources from './resources';

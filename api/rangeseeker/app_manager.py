@@ -1,5 +1,6 @@
 import base64
 
+from core.exceptions import ForbiddenException
 from core.exceptions import NotFoundException
 from core.exceptions import UnauthorizedException
 from core.store.database import Database
@@ -39,7 +40,15 @@ class AppManager(Authorizer):
 
     async def retrieve_signature_signer(self, signatureString: str) -> str:
         signerAddress = await self._retrieve_signature_signer_address(signatureString=signatureString)
-        return signerAddress
+        user = await self._get_user_by_wallet_address(walletAddress=signerAddress)
+        return user.userId
+
+    async def _get_user_by_wallet_address(self, walletAddress: str) -> User:
+        try:
+            user = await self.userManager.get_user_by_wallet_address(walletAddress=walletAddress)
+        except NotFoundException:
+            raise UnauthorizedException('NO_USER')
+        return user
 
     async def user_login_with_wallet_address(self, walletAddress: str, userId: str) -> User:
         try:
@@ -47,7 +56,7 @@ class AppManager(Authorizer):
         except NotFoundException:
             raise UnauthorizedException('NO_USER')
         if user.userId != userId:
-            raise UnauthorizedException('INCORRECT_USER')
+            raise ForbiddenException('INCORRECT_USER')
         return user
 
     async def get_user(self, userId: str) -> User:
