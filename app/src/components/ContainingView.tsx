@@ -26,7 +26,7 @@ function MenuView(props: IMenuViewProps): React.ReactElement {
         iconLeft={<KibaIcon iconId='ion-person-outline' variant='small' />}
       />
       <Button
-        variant={getVariant('sidebar', location.pathname === '/agents' && 'sidebarActive')}
+        variant={getVariant('sidebar', location.pathname.startsWith('/agents') && 'sidebarActive')}
         text='Agents'
         onClicked={props.onMenuItemClicked}
         target='/agents'

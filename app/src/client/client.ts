@@ -118,4 +118,11 @@ export class RangeSeekerClient extends ServiceClient {
     const response = await this.makeRequest(method, path, request, Endpoints.PreviewDepositResponse, this.getHeaders(authToken));
     return response.preview;
   };
+
+  public depositMadeToAgent = async (agentId: string, authToken: string): Promise<void> => {
+    const method = RestMethod.POST;
+    const path = 'v1/agents/deposit-made';
+    const request = new Endpoints.DepositMadeToAgentRequest(agentId);
+    await this.makeRequest(method, path, request, Endpoints.DepositMadeToAgentResponse, this.getHeaders(authToken));
+  };
 }

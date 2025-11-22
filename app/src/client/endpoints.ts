@@ -383,3 +383,27 @@ export class PreviewDepositResponse extends ResponseData {
     );
   };
 }
+
+export class DepositMadeToAgentRequest extends RequestData {
+  public constructor(
+    readonly agentId: string,
+  ) {
+    super();
+  }
+
+  public toObject = (): RawObject => {
+    return {
+      agentId: this.agentId,
+    };
+  };
+}
+
+export class DepositMadeToAgentResponse extends ResponseData {
+  public constructor() {
+    super();
+  }
+
+  public static fromObject = (_obj: RawObject): DepositMadeToAgentResponse => {
+    return new DepositMadeToAgentResponse();
+  };
+}

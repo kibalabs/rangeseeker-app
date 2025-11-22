@@ -25,6 +25,9 @@ export const buildRangeSeekerTheme = (): ITheme => {
       'font-weight': '600',
       color: '$colors.text',
     },
+    fancy: {
+      'font-family': '"Source Serif Pro", serif',
+    },
     extraLarge: {
       'font-size': '1.75em',
     },
@@ -126,7 +129,7 @@ export const buildRangeSeekerTheme = (): ITheme => {
       },
       sidebar: {
         'border-width': '0',
-        'background-color': '$colors.backgroundClear50',
+        'background-color': '$colors.backgroundClear80',
         'border-radius': '0',
         'backdrop-filter': 'blur(10px)',
         '-webkit-backdrop-filter': 'blur(10px)',

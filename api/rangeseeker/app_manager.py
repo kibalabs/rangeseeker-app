@@ -268,3 +268,11 @@ class AppManager(Authorizer):
             token0Symbol='WETH',
             token1Symbol='USDC',
         )
+
+    async def deposit_made_to_agent(self, userId: str, agentId: str) -> None:
+        agent = await self.userManager.get_agent(userId=userId, agentId=agentId)
+        agentWallet = await self.userManager.get_agent_wallet(userId=userId, agentId=agent.agentId)
+        # Refresh agent wallet balances from blockchain after deposit
+        # The get_wallet_balances method queries the blockchain directly, so this ensures
+        # the latest balances are available when the frontend refreshes
+        await self.get_wallet_balances(chainId=8453, walletAddress=agentWallet.walletAddress)

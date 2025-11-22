@@ -124,3 +124,11 @@ class PreviewDepositRequest(BaseModel):
 
 class PreviewDepositResponse(BaseModel):
     preview: resources.PreviewDeposit
+
+
+class DepositMadeToAgentRequest(BaseModel):
+    agentId: str
+
+
+class DepositMadeToAgentResponse(BaseModel):
+    pass

@@ -93,6 +93,15 @@ def create_v1_routes(appManager: AppManager) -> list[Route]:
         )
         return endpoints.PreviewDepositResponse(preview=resources.PreviewDeposit.model_validate(preview.model_dump()))
 
+    @json_route(requestType=endpoints.DepositMadeToAgentRequest, responseType=endpoints.DepositMadeToAgentResponse)
+    @authorize_signature(authorizer=appManager)
+    async def deposit_made_to_agent(request: KibaApiRequest[endpoints.DepositMadeToAgentRequest]) -> endpoints.DepositMadeToAgentResponse:
+        await appManager.deposit_made_to_agent(
+            userId=typing.cast(BasicAuthentication, request.authBasic).username,
+            agentId=request.data.agentId,
+        )
+        return endpoints.DepositMadeToAgentResponse()
+
     return [
         Route('/users/login-with-wallet', user_login_with_wallet_address, methods=['POST']),
         Route('/users', create_user, methods=['POST']),
@@ -106,4 +115,5 @@ def create_v1_routes(appManager: AppManager) -> list[Route]:
         Route('/agents/{agentId}/wallet', get_agent_wallet, methods=['GET']),
         Route('/wallet-balances', get_wallet_balances, methods=['GET']),
         Route('/agents/preview-deposit', preview_deposit, methods=['POST']),
+        Route('/agents/deposit-made', deposit_made_to_agent, methods=['POST']),
     ]
