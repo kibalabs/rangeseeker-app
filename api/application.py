@@ -1,4 +1,5 @@
 import os
+
 from core import logging
 from core.api.default_routes import create_default_routes
 from core.api.middleware.exception_handling_middleware import ExceptionHandlingMiddleware
@@ -21,11 +22,14 @@ else:
     logging.init_json_logging(name=name, version=version, environment=environment, requestIdHolder=requestIdHolder)
 logging.init_external_loggers(loggerNames=['httpx'])
 
+
 async def startup() -> None:
     pass
 
+
 async def shutdown() -> None:
     pass
+
 
 app = Starlette(
     routes=[

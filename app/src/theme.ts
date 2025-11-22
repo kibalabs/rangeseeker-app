@@ -1,4 +1,4 @@
-import { buildTheme, ITheme, mergeTheme, ThemeMap, ITextTheme } from '@kibalabs/ui-react';
+import { buildTheme, ITextTheme, ITheme, mergeTheme, ThemeMap } from '@kibalabs/ui-react';
 import { buildToastThemes } from '@kibalabs/ui-react-toast';
 
 export const buildRangeSeekerTheme = (): ITheme => {

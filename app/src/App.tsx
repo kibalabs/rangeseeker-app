@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { IRoute, Router, SubRouter } from '@kibalabs/core-react';
 import { KibaApp } from '@kibalabs/ui-react';
 
@@ -11,7 +12,7 @@ const routes: IRoute<void>[] = [
   { path: '/', page: HomePage },
 ];
 
-export const App = () => {
+export function App() {
   return (
     <KibaApp theme={theme}>
       <Router>
@@ -19,4 +20,4 @@ export const App = () => {
       </Router>
     </KibaApp>
   );
-};
+}
