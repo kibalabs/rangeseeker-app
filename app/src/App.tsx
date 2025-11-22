@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { AuthProvider } from './AuthContext';
 import { RangeSeekerClient } from './client/client';
+import { AnimatedBackground } from './components/AnimatedBackground';
 import { ContainingView } from './components/ContainingView';
 import { GlobalsProvider, IGlobals } from './GlobalsContext';
 import { AccountPage } from './pages/AccountPage';
@@ -60,6 +61,7 @@ export function App(): React.ReactElement {
 
   return (
     <KibaApp theme={theme}>
+      <AnimatedBackground />
       <GlobalsProvider globals={globals}>
         <QueryClientProvider client={queryClient}>
           <Router>

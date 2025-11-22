@@ -8,6 +8,7 @@ export const buildRangeSeekerTheme = (): ITheme => {
     default: mergeTheme(baseTheme.texts.default, {
       'font-family': '"Source Sans Pro", sans-serif',
       'font-weight': '400',
+      'font-size': '18px',
     }),
     header1: {
       'font-family': '"Source Serif Pro", serif',
@@ -16,7 +17,7 @@ export const buildRangeSeekerTheme = (): ITheme => {
     },
     header2: {
       'font-family': '"Source Serif Pro", serif',
-      'font-weight': '700',
+      'font-weight': '600',
       color: '$colors.text',
     },
     header3: {
@@ -24,12 +25,15 @@ export const buildRangeSeekerTheme = (): ITheme => {
       'font-weight': '600',
       color: '$colors.text',
     },
+    extraLarge: {
+      'font-size': '1.75em',
+    },
   };
 
   const theme = buildTheme({
     colors: {
       background: '#141414',
-      brandPrimary: '#CCF6F9',
+      brandPrimary: 'rgb(110,211,233)',
       brandSecondary: '#C4F2C8',
     },
     fonts: {
@@ -38,13 +42,103 @@ export const buildRangeSeekerTheme = (): ITheme => {
       },
     },
     texts: textThemes,
+    buttons: {
+      default: {
+        normal: {
+          default: {
+            background: {
+              'backdrop-filter': 'blur(10px)',
+              '-webkit-backdrop-filter': 'blur(10px)',
+            },
+          },
+        },
+      },
+      primary: {
+        normal: {
+          default: {
+            background: {
+              'background-color': '$colors.brandPrimaryClear90',
+              'border-width': '0',
+            },
+            text: {
+              color: '$colors.brandPrimary',
+            },
+          },
+          hover: {
+            background: {
+              'background-color': '$colors.brandPrimaryClear80',
+            },
+          },
+        },
+      },
+      secondary: {
+        normal: {
+          default: {
+            background: {
+              'background-color': '$colors.backgroundLight05',
+              'border-width': '0',
+            },
+          },
+          hover: {
+            background: {
+              'background-color': '$colors.backgroundLight10',
+            },
+          },
+        },
+      },
+      sidebar: {
+        normal: {
+          default: {
+            background: {
+              'border-color': '$colors.backgroundClear90',
+              'border-style': 'solid',
+              'border-width': '0 0 1px 0',
+              'border-radius': '0',
+              padding: `${baseTheme.dimensions.paddingWide} ${baseTheme.dimensions.paddingWide}`,
+            },
+            text: {
+              'font-weight': 'normal',
+              color: '$colors.text',
+            },
+          },
+        },
+      },
+      sidebarActive: {
+        normal: {
+          default: {
+            background: {
+              'background-color': '$colors.brandPrimaryDark50',
+            },
+            text: {
+              color: '$colors.text',
+            },
+          },
+        },
+      },
+    },
+    boxes: {
+      card: {
+        'background-color': '$colors.backgroundClear50',
+        'backdrop-filter': 'blur(10px)',
+        '-webkit-backdrop-filter': 'blur(10px)',
+        border: '0px',
+        'box-shadow': '0 4px 30px rgba(0, 0, 0, 0.1)',
+      },
+      sidebar: {
+        'border-width': '0',
+        'background-color': '$colors.backgroundClear50',
+        'border-radius': '0',
+        'backdrop-filter': 'blur(10px)',
+        '-webkit-backdrop-filter': 'blur(10px)',
+      },
+    },
     inputWrappers: {
       default: {
         normal: {
           default: {
             background: {
-              'background-color': 'rgba(255, 255, 255, 0.05)',
-              'border-color': 'rgba(255, 255, 255, 0.08)',
+              'background-color': '$colors.backgroundLight05',
+              'border-color': '$colors.backgroundLight10',
             },
           },
         },

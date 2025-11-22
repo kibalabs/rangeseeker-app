@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 
 
 import { useNavigator } from '@kibalabs/core-react';
-import { Alignment, Button, Direction, PaddingSize, SingleLineInput, Spacing, Stack, Text } from '@kibalabs/ui-react';
+import { Alignment, Box, Button, Direction, PaddingSize, SingleLineInput, Spacing, Stack, Text } from '@kibalabs/ui-react';
 import styled from 'styled-components';
 
 import { useAuth } from '../../AuthContext';
-import { GlassCard } from '../../components/GlassCard';
 import { useGlobals } from '../../GlobalsContext';
 import { useStrategyCreation } from '../../StrategyCreationContext';
 
@@ -84,7 +83,7 @@ export function DeployPage(): React.ReactElement {
 
         <Spacing variant={PaddingSize.Wide} />
 
-        <GlassCard>
+        <Box variant='card'>
           <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
             <Text variant='header3'>Agent Details</Text>
 
@@ -130,7 +129,7 @@ export function DeployPage(): React.ReactElement {
               isEnabled={!isDeploying && agentName.length > 0}
             />
           </Stack>
-        </GlassCard>
+        </Box>
       </Stack>
     </Stack>
   );
