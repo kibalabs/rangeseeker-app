@@ -9,6 +9,7 @@ import { StrategyDefinition, StrategyRule } from '../../client/resources';
 import { GlassCard } from '../../components/GlassCard';
 import { PriceChart } from '../../components/PriceChart';
 import { useGlobals } from '../../GlobalsContext';
+import { useStrategyCreation } from '../../StrategyCreationContext';
 import { usePoolDataQuery, usePoolHistoricalDataQuery } from '../../util';
 
 const CHAIN_ID = 8453;
@@ -35,6 +36,7 @@ const DropdownBox = styled.div`
 export function StrategyPage(): React.ReactElement {
   const { rangeSeekerClient } = useGlobals();
   const { authToken } = useAuth();
+  const { setStrategy } = useStrategyCreation();
   const navigator = useNavigator();
   const [selectedPreset, setSelectedPreset] = useState<string>('conservative');
   const [strategyInput, setStrategyInput] = useState<string>('');
@@ -215,6 +217,7 @@ export function StrategyPage(): React.ReactElement {
     if (!strategyDefinition) {
       return;
     }
+    setStrategy(strategyDefinition, strategyInput);
     navigator.navigateTo('/deploy');
   };
 

@@ -17,6 +17,7 @@ import { DeployPage } from './pages/DeployPage';
 import { HomePage } from './pages/HomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { StrategyPage } from './pages/StrategyPage';
+import { StrategyCreationProvider } from './StrategyCreationContext';
 import { buildRangeSeekerTheme } from './theme';
 
 declare global {
@@ -64,9 +65,11 @@ export function App(): React.ReactElement {
           <Router>
             <Web3AccountControlProvider localStorageClient={localStorageClient} onError={onWeb3AccountError}>
               <AuthProvider>
-                <ContainingView>
-                  <SubRouter routes={routes} />
-                </ContainingView>
+                <StrategyCreationProvider>
+                  <ContainingView>
+                    <SubRouter routes={routes} />
+                  </ContainingView>
+                </StrategyCreationProvider>
               </AuthProvider>
             </Web3AccountControlProvider>
           </Router>

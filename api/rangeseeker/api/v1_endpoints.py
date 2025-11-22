@@ -3,10 +3,6 @@ from pydantic import BaseModel
 from rangeseeker.api import v1_resources as resources
 
 
-class EmptyRequest(BaseModel):
-    pass
-
-
 class LoginWithWalletRequest(BaseModel):
     walletAddress: str
 
@@ -69,6 +65,10 @@ class GetStrategyResponse(BaseModel):
 
 class ListUserStrategiesResponse(BaseModel):
     strategies: list[resources.Strategy]
+
+
+class ListAgentsRequest(BaseModel):
+    pass
 
 
 class ListAgentsResponse(BaseModel):

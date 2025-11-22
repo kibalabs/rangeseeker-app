@@ -40,9 +40,9 @@ def create_v1_routes(appManager: AppManager) -> list[Route]:
         poolHistoricalData = await appManager.get_pool_historical_data(chainId=request.data.chainId, token0Address=request.data.token0Address, token1Address=request.data.token1Address, hoursBack=request.data.hoursBack)
         return endpoints.GetPoolHistoricalDataResponse(poolHistoricalData=resources.PoolHistoricalData.model_validate(poolHistoricalData))
 
-    @json_route(requestType=endpoints.EmptyRequest, responseType=endpoints.ListAgentsResponse)
+    @json_route(requestType=endpoints.ListAgentsRequest, responseType=endpoints.ListAgentsResponse)
     @authorize_signature(authorizer=appManager)
-    async def list_agents(request: KibaApiRequest[endpoints.EmptyRequest]) -> endpoints.ListAgentsResponse:
+    async def list_agents(request: KibaApiRequest[endpoints.ListAgentsRequest]) -> endpoints.ListAgentsResponse:
         agents = await appManager.list_agents(userId=typing.cast(BasicAuthentication, request.authBasic).username)
         return endpoints.ListAgentsResponse(agents=[resources.Agent.model_validate(agent.model_dump()) for agent in agents])
 
