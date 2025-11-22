@@ -1,30 +1,21 @@
 import React from 'react';
 
 import { useInitialization, useStringRouteParam } from '@kibalabs/core-react';
-import { Alignment, Box, Button, Direction, InputType, KibaIcon, PaddingSize, SingleLineInput, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
-import { useWeb3 } from '@kibalabs/web3-react';
+import { Alignment, Box, Button, Direction, EqualGrid, IconButton, InputType, KibaIcon, PaddingSize, SingleLineInput, Spacing, Stack, Text, TextAlignment } from '@kibalabs/ui-react';
+import { useWeb3, useOnSwitchToWeb3ChainIdClicked, useWeb3ChainId } from '@kibalabs/web3-react';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { ethers } from 'ethers';
 import styled from 'styled-components';
 
 import { useAuth } from '../../AuthContext';
 import { Agent, PreviewDeposit, Strategy, Wallet } from '../../client/resources';
+import { LoadingShimmer } from '../../components/LoadingShimmer';
 import { PriceChart } from '../../components/PriceChart';
 import { useGlobals } from '../../GlobalsContext';
 
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
-
-const StatBox = styled.div`
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 16px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-`;
+const BASE_CHAIN_ID = 8453;
 
 const ActivityItem = styled.div`
   padding: 12px 0;
@@ -88,6 +79,8 @@ export function DashboardPage(): React.ReactElement {
   const { rangeSeekerClient } = useGlobals();
   const { authToken } = useAuth();
   const web3 = useWeb3();
+  const chainId = useWeb3ChainId();
+  const onSwitchToWeb3ChainIdClicked = useOnSwitchToWeb3ChainIdClicked();
   const [agent, setAgent] = React.useState<Agent | null>(null);
   const [strategy, setStrategy] = React.useState<Strategy | null>(null);
   const [agentWallet, setAgentWallet] = React.useState<Wallet | null>(null);
@@ -99,6 +92,9 @@ export function DashboardPage(): React.ReactElement {
   const [wethPrice, setWethPrice] = React.useState<number>(0);
   const [isDepositing, setIsDepositing] = React.useState(false);
   const [depositPreview, setDepositPreview] = React.useState<PreviewDeposit | null>(null);
+  const [depositError, setDepositError] = React.useState<string | null>(null);
+  const [depositSteps, setDepositSteps] = React.useState<Array<{ label: string; status: 'pending' | 'loading' | 'success' | 'error' }>>([]);
+  const [isRebalancing, setIsRebalancing] = React.useState(false);
 
   useInitialization(() => {
     const init = async () => {
@@ -174,25 +170,112 @@ export function DashboardPage(): React.ReactElement {
     }, 0);
   }, [agentWallet]);
 
-  const onDepositClicked = async () => {
-    if (!web3 || !agentWallet || (!usdcDepositAmount && !wethDepositAmount)) {
+  const onRebalanceClicked = async () => {
+    if (!authToken || !agentId) {
       return;
     }
-    setIsDepositing(true);
+
+    setIsRebalancing(true);
+    setDepositError(null);
     try {
-      // TODO: Implement deposit logic for both assets
-      // const signer = await (web3 as ethers.BrowserProvider).getSigner();
-      // ...
-      await new Promise((resolve) => { setTimeout(resolve, 1000); }); // Mock delay
-      setUsdcDepositAmount('');
-      setWethDepositAmount('');
-      // eslint-disable-next-line no-alert
-      alert('Deposit functionality coming soon!');
+      await rangeSeekerClient.depositMadeToAgent(agentId, authToken);
+
+      // Refresh agent wallet
+      const newWallet = await rangeSeekerClient.getAgentWallet(agentId, authToken);
+      setAgentWallet(newWallet);
+
+      setIsRebalancing(false);
+    } catch (error) {
+      console.error('Failed to rebalance:', error);
+      setDepositError(error instanceof Error ? error.message : 'Rebalance failed. Please try again.');
+      setIsRebalancing(false);
+    }
+  };
+
+  const onDepositClicked = async () => {
+    if (!web3 || !agentWallet || (!usdcDepositAmount && !wethDepositAmount) || !authToken || !agentId) {
+      return;
+    }
+
+    // Build steps list
+    const steps: Array<{ label: string; status: 'pending' | 'loading' | 'success' | 'error' }> = [];
+    if (usdcDepositAmount && Number(usdcDepositAmount) > 0) {
+      steps.push({ label: `Send ${usdcDepositAmount} USDC`, status: 'pending' });
+    }
+    if (wethDepositAmount && Number(wethDepositAmount) > 0) {
+      steps.push({ label: `Send ${wethDepositAmount} WETH`, status: 'pending' });
+    }
+    steps.push({ label: 'Rebalance liquidity', status: 'pending' });
+    setDepositSteps(steps);
+
+    setIsDepositing(true);
+    setDepositError(null);
+    try {
+      const signer = await (web3 as ethers.BrowserProvider).getSigner();
+      let currentStepIndex = 0;
+
+      // USDC transfer
+      if (usdcDepositAmount && Number(usdcDepositAmount) > 0) {
+        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'loading' } : s));
+        try {
+          const ERC20_ABI = ['function transfer(address to, uint256 amount) public returns (bool)'];
+          const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
+          const usdcAmountWei = BigInt((Number(usdcDepositAmount) * 10 ** 6).toFixed(0));
+          const usdcTx = await usdcContract.transfer(agentWallet.walletAddress, usdcAmountWei);
+          await usdcTx.wait();
+          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'success' } : s));
+          currentStepIndex++;
+        } catch (error) {
+          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'error' } : s));
+          throw error;
+        }
+      }
+
+      // WETH transfer
+      if (wethDepositAmount && Number(wethDepositAmount) > 0) {
+        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'loading' } : s));
+        try {
+          const ERC20_ABI = ['function transfer(address to, uint256 amount) public returns (bool)'];
+          const wethContract = new ethers.Contract(WETH_ADDRESS, ERC20_ABI, signer);
+          const wethAmountWei = ethers.parseEther(wethDepositAmount);
+          const wethTx = await wethContract.transfer(agentWallet.walletAddress, wethAmountWei);
+          await wethTx.wait();
+          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'success' } : s));
+          currentStepIndex++;
+        } catch (error) {
+          setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'error' } : s));
+          throw error;
+        }
+      }
+
+      // Notify backend and rebalance
+      setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'loading' } : s));
+      try {
+        await rangeSeekerClient.depositMadeToAgent(agentId, authToken);
+        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'success' } : s));
+
+        setUsdcDepositAmount('');
+        setWethDepositAmount('');
+
+        // Refresh balances
+        await fetchBalances();
+
+        // Reload agent wallet
+        const newWallet = await rangeSeekerClient.getAgentWallet(agentId, authToken);
+        setAgentWallet(newWallet);
+
+        // Clear steps after a delay
+        setTimeout(() => {
+          setDepositSteps([]);
+          setIsDepositing(false);
+        }, 2000);
+      } catch (error) {
+        setDepositSteps(prev => prev.map((s, i) => i === currentStepIndex ? { ...s, status: 'error' } : s));
+        throw error;
+      }
     } catch (error) {
       console.error('Deposit failed:', error);
-      // eslint-disable-next-line no-alert
-      alert('Deposit failed. See console for details.');
-    } finally {
+      setDepositError(error instanceof Error ? error.message : 'Deposit failed. Please try again.');
       setIsDepositing(false);
     }
   };
@@ -232,56 +315,80 @@ export function DashboardPage(): React.ReactElement {
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
         <Text variant='header1'>Dashboard</Text>
         <Spacing variant={PaddingSize.Wide} />
-        <Box variant='card'>
-          <Stack direction={Direction.Vertical} shouldAddGutters={true} padding={PaddingSize.Wide}>
-            <FlexRow>
-              <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center}>
-                <IconBox>
-                  {agent.emoji}
-                </IconBox>
-                <Stack direction={Direction.Vertical}>
-                  <Text variant='header3'>{agent.name}</Text>
-                  <Text variant='note'>
-                    {strategy ? strategy.summary : 'Loading strategy...'}
-                  </Text>
+        <FlexRow>
+          <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center}>
+            <IconBox>{agent.emoji}</IconBox>
+            <Stack direction={Direction.Vertical}>
+              <Text variant='header3'>{agent.name}</Text>
+              {strategy ? (
+                <Text variant='note'>{strategy.summary}</Text>
+              ) : (
+                <LoadingShimmer width='300px' height='16px' />
+              )}
+              {agentWallet?.walletAddress && (
+                <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true} contentAlignment={Alignment.Start}>
+                  <Text variant='note'>{`${agentWallet.walletAddress.slice(0, 6)}...${agentWallet.walletAddress.slice(-4)}`}</Text>
+                  <IconButton
+                    icon={<KibaIcon iconId='ion-copy-outline' variant='small' />}
+                    onClicked={() => navigator.clipboard.writeText(agentWallet.walletAddress)}
+                  />
                 </Stack>
-              </Stack>
-              <StatusBadge>
-                <Text variant='bold'>
-                  <ColoredText color='#2EE4E3'>Active</ColoredText>
-                </Text>
-              </StatusBadge>
-            </FlexRow>
-            <Spacing variant={PaddingSize.Default} />
-            <Stack direction={Direction.Horizontal} isFullWidth={true} shouldAddGutters={true}>
-              <StatBox>
-                <Text variant='note'>Total Value</Text>
-                <Spacing variant={PaddingSize.Narrow} />
-                <Text variant='header2'>
-                  $
-                  {totalValue.toFixed(2)}
-                </Text>
-              </StatBox>
-              <StatBox>
-                <Text variant='note'>Current APY</Text>
-                <Spacing variant={PaddingSize.Narrow} />
-                <Text variant='header2'>
-                  <ColoredText color='#2EE4E3'>0%</ColoredText>
-                </Text>
-              </StatBox>
-              <StatBox>
-                <Text variant='note'>Wallet Address</Text>
-                <Spacing variant={PaddingSize.Narrow} />
-                <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
-                  <Text variant='note'>{agentWallet?.walletAddress ? `${agentWallet.walletAddress.slice(0, 6)}...${agentWallet.walletAddress.slice(-4)}` : 'Loading...'}</Text>
-                  <KibaIcon iconId='ion-copy-outline' />
-                </Stack>
-              </StatBox>
+              )}
             </Stack>
-            <Spacing variant={PaddingSize.Wide} />
-            <Text variant='header4'>Deposit Funds</Text>
-            <Box variant='card'>
-              <Stack direction={Direction.Vertical} padding={PaddingSize.Default} shouldAddGutters={true} maxWidth='400px'>
+          </Stack>
+          <StatusBadge><Text variant='bold-branded'>Active</Text></StatusBadge>
+        </FlexRow>
+        <Spacing variant={PaddingSize.Default} />
+        <EqualGrid childSizeResponsive={{ base: 12, medium: 6 }} shouldAddGutters={true} isFullHeight={false}>
+          <Box variant='card' isFullWidth={true}>
+            <Stack direction={Direction.Vertical} shouldAddGutters={false}>
+              <Text variant='note'>Total Value</Text>
+              <Spacing variant={PaddingSize.Narrow} />
+              {agentWallet ? (
+                <React.Fragment>
+                  <Text variant='extraLarge-fancy-bold'>{`$${totalValue.toFixed(2)}`}</Text>
+                  <Spacing variant={PaddingSize.Narrow} />
+                  {agentWallet.assetBalances.map((balance) => {
+                    const amount = Number(balance.balance) / (10 ** balance.asset.decimals);
+                    const value = amount * balance.assetPrice.priceUsd;
+                    if (amount === 0) {
+                      return null;
+                    }
+                    return (
+                      <Text key={balance.asset.assetId} variant='note'>
+                        {amount.toFixed(balance.asset.symbol === 'USDC' ? 2 : 6)} {balance.asset.symbol} (${value.toFixed(2)})
+                      </Text>
+                    );
+                  })}
+                </React.Fragment>
+              ) : (
+                <LoadingShimmer width='120px' height='32px' />
+              )}
+            </Stack>
+          </Box>
+          <Box variant='card' isFullWidth={true}>
+            <Stack direction={Direction.Vertical} shouldAddGutters={false}>
+              <Text variant='note'>Current APY</Text>
+              <Spacing variant={PaddingSize.Narrow} />
+              {agentWallet ? (
+                <Text variant='extraLarge-fancy-bold-branded'>0%</Text>
+              ) : (
+                <LoadingShimmer width='80px' height='32px' />
+              )}
+            </Stack>
+          </Box>
+        </EqualGrid >
+        <Spacing variant={PaddingSize.Wide} />
+        <Box variant='card'>
+          <Stack direction={Direction.Vertical} padding={PaddingSize.Default} shouldAddGutters={true} maxWidth='400px'>
+            {chainId !== BASE_CHAIN_ID ? (
+              <Stack direction={Direction.Vertical} shouldAddGutters={true} childAlignment={Alignment.Center}>
+                <Text variant='bold'>Wrong Network</Text>
+                <Text variant='note' alignment={TextAlignment.Center}>Please switch to the Base network to deposit funds. Range Seeker only supports Base chain.</Text>
+                <Button variant='secondary' text='Switch to Base' onClicked={() => onSwitchToWeb3ChainIdClicked(BASE_CHAIN_ID)} />
+              </Stack>
+            ) : (
+              <React.Fragment>
                 <Stack direction={Direction.Vertical} shouldAddGutters={true}>
                   <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
                     <Text variant='bold'>USDC</Text>
@@ -328,32 +435,63 @@ export function DashboardPage(): React.ReactElement {
                     <Spacing variant={PaddingSize.Default} />
                   </React.Fragment>
                 )}
+                {depositError && (
+                  <Text variant='error'>{depositError}</Text>
+                )}
+                {depositSteps.length > 0 && (
+                  <Stack direction={Direction.Vertical} shouldAddGutters={true}>
+                    <Text variant='bold'>Transaction Progress:</Text>
+                    {depositSteps.map((step, index) => (
+                      <Stack key={index} direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true}>
+                        <Text>
+                          {step.status === 'pending' && '◼'}
+                          {step.status === 'loading' && '👀'}
+                          {step.status === 'success' && '✅'}
+                          {step.status === 'error' && '❌'}
+                        </Text>
+                        <Text variant={step.status === 'error' ? 'error' : 'default'}>{step.label}</Text>
+                      </Stack>
+                    ))}
+                  </Stack>
+                )}
+                {agentWallet && totalValue > 0 && (
+                  <React.Fragment>
+                    <Text variant='note' alignment={TextAlignment.Center}>Your agent has ${totalValue.toFixed(2)}. You can rebalance without depositing more.</Text>
+                    <Button
+                      variant='secondary'
+                      text={isRebalancing ? 'Rebalancing...' : 'Rebalance Liquidity'}
+                      onClicked={onRebalanceClicked}
+                      isEnabled={!isRebalancing && !isDepositing}
+                    />
+                    <Text variant='note' alignment={TextAlignment.Center}>— or deposit more —</Text>
+                  </React.Fragment>
+                )}
                 <Button
                   variant='primary'
                   text={isDepositing ? 'Depositing...' : 'Deposit'}
                   onClicked={onDepositClicked}
-                  isEnabled={!isDepositing && (usdcDepositAmount.length > 0 || wethDepositAmount.length > 0)}
+                  isEnabled={!isDepositing && !isRebalancing && (usdcDepositAmount.length > 0 || wethDepositAmount.length > 0)}
                 />
-              </Stack>
-            </Box>
-            <Spacing variant={PaddingSize.Default} />
-            <Box width='100%' height='300px'>
-              <PriceChart />
-            </Box>
-            <Spacing variant={PaddingSize.Default} />
-            <Text variant='header4'>Recent Activity</Text>
-            <Stack direction={Direction.Vertical} isFullWidth={true}>
-              <ActivityItem>
-                <Stack direction={Direction.Vertical}>
-                  <Text variant='bold'>Agent Deployed</Text>
-                  <Text variant='note'>Waiting for funds...</Text>
-                </Stack>
-                <Text variant='note'>Just now</Text>
-              </ActivityItem>
-            </Stack>
+              </React.Fragment>
+            )}
           </Stack>
         </Box>
-      </Stack>
-    </Stack>
+        <Spacing variant={PaddingSize.Default} />
+        <Box width='100%' height='300px'>
+          <PriceChart />
+        </Box>
+        <Spacing variant={PaddingSize.Default} />
+        <Text variant='header4'>Recent Activity</Text>
+        <Stack direction={Direction.Vertical} isFullWidth={true}>
+          <ActivityItem>
+            <Stack direction={Direction.Vertical}>
+              <Text variant='bold'>Agent Deployed</Text>
+              <Text variant='note'>Waiting for funds...</Text>
+            </Stack>
+            <Text variant='note'>Just now</Text>
+          </ActivityItem>
+        </Stack>
+      </Stack >
+    </Stack >
   );
 }
