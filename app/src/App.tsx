@@ -19,8 +19,15 @@ import { RegisterPage } from './pages/RegisterPage';
 import { StrategyPage } from './pages/StrategyPage';
 import { buildRangeSeekerTheme } from './theme';
 
+declare global {
+  export interface Window {
+    KRT_API_URL?: string;
+    KRT_IS_NEXT?: string;
+  }
+}
+
 const requester = new Requester();
-const baseUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+const baseUrl = typeof window !== 'undefined' && window.KRT_API_URL ? window.KRT_API_URL : 'https://rangeseeker-api.tokenpage.xyz';
 const rangeSeekerClient = new RangeSeekerClient(requester, baseUrl);
 const localStorageClient = new LocalStorageClient(typeof window !== 'undefined' ? window.localStorage : new MockStorage());
 const sessionStorageClient = new LocalStorageClient(typeof window !== 'undefined' ? window.sessionStorage : new MockStorage());
