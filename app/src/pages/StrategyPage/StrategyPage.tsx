@@ -199,6 +199,7 @@ export function StrategyPage(): React.ReactElement {
           <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center}>
             <Text variant='note'>{`Current Price: $${poolData.currentPrice.toFixed(4)}`}</Text>
             <Text variant='note'>{`24h Volatility: ${(poolData.volatility24h * 100).toFixed(1)}%`}</Text>
+            <Text variant='note'>{`7d Volatility: ${(poolData.volatility7d * 100).toFixed(1)}%`}</Text>
           </Stack>
         ) : null}
         <Spacing variant={PaddingSize.Wide} />
