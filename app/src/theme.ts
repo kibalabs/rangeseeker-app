@@ -137,8 +137,8 @@ export const buildRangeSeekerTheme = (): ITheme => {
         normal: {
           default: {
             background: {
-              'background-color': '$colors.backgroundLight05',
-              'border-color': '$colors.backgroundLight10',
+              'background-color': '$colors.backgroundClear50',
+              'border-width': '0',
             },
           },
         },
