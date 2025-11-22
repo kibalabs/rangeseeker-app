@@ -10,6 +10,9 @@ from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
+from rangeseeker.api.v1_api import create_v1_routes
+from rangeseeker.create_user_manager import create_app_manager
+
 name = os.environ.get('NAME', 'rangeseeker-api')
 version = os.environ.get('VERSION', 'local')
 environment = os.environ.get('ENV', 'dev')
@@ -22,18 +25,21 @@ else:
     logging.init_json_logging(name=name, version=version, environment=environment, requestIdHolder=requestIdHolder)
 logging.init_external_loggers(loggerNames=['httpx'])
 
+appManager = create_app_manager()
+
 
 async def startup() -> None:
-    pass
+    await appManager.database.connect()
 
 
 async def shutdown() -> None:
-    pass
+    await appManager.database.disconnect()
 
 
 app = Starlette(
     routes=[
         *create_default_routes(name=name, version=version, environment=environment),
+        *create_v1_routes(appManager=appManager),
     ],
     on_startup=[startup],
     on_shutdown=[shutdown],

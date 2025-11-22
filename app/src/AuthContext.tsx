@@ -59,6 +59,9 @@ export function AuthProvider(props: AuthProviderProps): React.ReactElement {
     }
     try {
       const newUser = await rangeSeekerClient.loginWithWallet(walletAddress, authToken);
+      if (newUser === null) {
+        throw new KibaException('User not found', 404);
+      }
       setUser(newUser);
       return newUser;
     } catch (error) {

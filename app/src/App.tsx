@@ -18,7 +18,7 @@ import { StrategyPage } from './pages/StrategyPage';
 import { buildRangeSeekerTheme } from './theme';
 
 const requester = new Requester();
-const baseUrl = 'https://api.rangeseeker.xyz'; // Placeholder
+const baseUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 const rangeSeekerClient = new RangeSeekerClient(requester, baseUrl);
 const localStorageClient = new LocalStorageClient(typeof window !== 'undefined' ? window.localStorage : new MockStorage());
 const sessionStorageClient = new LocalStorageClient(typeof window !== 'undefined' ? window.sessionStorage : new MockStorage());
