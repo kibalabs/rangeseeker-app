@@ -88,6 +88,8 @@ class UniswapPosition(BaseModel):
     token0ValueUsd: float
     token1ValueUsd: float
     totalValueUsd: float
+    tickLower: int | None = None
+    tickUpper: int | None = None
 
 
 class Wallet(BaseModel):
