@@ -175,7 +175,6 @@ export function DashboardPage(): React.ReactElement {
 
   const strategyDefinition = React.useMemo(() => {
     if (!strategy || !strategy.rulesJson || !strategy.rulesJson.rules) {
-      console.log('No strategy definition:', { hasStrategy: !!strategy, hasRulesJson: !!strategy?.rulesJson, hasRules: !!strategy?.rulesJson?.rules });
       return null;
     }
     try {
@@ -185,7 +184,6 @@ export function DashboardPage(): React.ReactElement {
         feedRequirements: strategy.feedRequirements,
         summary: strategy.summary,
       };
-      console.log('Strategy definition created:', definition);
       return definition;
     } catch (error) {
       console.error('Failed to parse strategy definition:', error);

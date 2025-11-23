@@ -151,11 +151,6 @@ export function PriceChart(props: PriceChartProps) {
 
     // Add strategy overlays
     if (props.strategyDefinition && props.strategyDefinition.rules && props.currentPrice) {
-      console.log('Drawing strategy overlays:', {
-        rulesCount: props.strategyDefinition.rules.length,
-        currentPrice: props.currentPrice,
-        rules: props.strategyDefinition.rules,
-      });
       const rangeRule = props.strategyDefinition.rules.find((rule) => rule.type === 'RANGE_WIDTH');
       const priceThresholdRules = props.strategyDefinition.rules.filter((rule) => rule.type === 'PRICE_THRESHOLD');
 
