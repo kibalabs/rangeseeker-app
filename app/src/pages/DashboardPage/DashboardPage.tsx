@@ -171,10 +171,14 @@ export function DashboardPage(): React.ReactElement {
     if (!agentWallet) {
       return 0;
     }
-    return agentWallet.assetBalances.reduce((acc, balance) => {
+    const assetValue = agentWallet.assetBalances.reduce((acc, balance) => {
       const amount = Number(balance.balance) / (10 ** balance.asset.decimals);
       return acc + (amount * balance.assetPrice.priceUsd);
     }, 0);
+    const positionsValue = agentWallet.uniswapPositions.reduce((acc: number, position) => {
+      return acc + position.totalValueUsd;
+    }, 0);
+    return assetValue + positionsValue;
   }, [agentWallet]);
 
   const onRebalanceClicked = async () => {
@@ -372,34 +376,96 @@ export function DashboardPage(): React.ReactElement {
           <StatusBadge><Text variant='bold-branded'>Active</Text></StatusBadge>
         </Stack>
         <Spacing variant={PaddingSize.Default} />
-        <EqualGrid childSizeResponsive={{ base: 12, medium: 6 }} shouldAddGutters={false} isFullHeight={false}>
+        <EqualGrid childSizeResponsive={{ base: 12, medium: 6, large: 4 }} shouldAddGutters={false} isFullHeight={false}>
+          <Box variant='card' isFullWidth={true}>
+            <Stack direction={Direction.Vertical} shouldAddGutters={false}>
+              <Text variant='note'>Available Balance</Text>
+              <Spacing variant={PaddingSize.Narrow} />
+              {agentWallet ? (
+                <React.Fragment>
+                  {agentWallet.assetBalances.length > 0 ? (
+                    <React.Fragment>
+                      {agentWallet.assetBalances.map((balance) => {
+                        const amount = Number(balance.balance) / (10 ** balance.asset.decimals);
+                        const value = amount * balance.assetPrice.priceUsd;
+                        if (amount === 0) {
+                          return null;
+                        }
+                        return (
+                          <React.Fragment key={balance.asset.assetId}>
+                            <Text variant='bold'>
+                              {amount.toFixed(balance.asset.symbol === 'USDC' ? 2 : 6)}
+                              {' '}
+                              {balance.asset.symbol}
+                            </Text>
+                            <Text variant='note'>
+                              $
+                              {value.toFixed(2)}
+                            </Text>
+                            <Spacing variant={PaddingSize.Narrow} />
+                          </React.Fragment>
+                        );
+                      })}
+                    </React.Fragment>
+                  ) : (
+                    <Text variant='note'>No tokens available</Text>
+                  )}
+                </React.Fragment>
+              ) : (
+                <LoadingShimmer width='120px' height='32px' />
+              )}
+            </Stack>
+          </Box>
+          <Box variant='card' isFullWidth={true}>
+            <Stack direction={Direction.Vertical} shouldAddGutters={false}>
+              <Text variant='note'>Uniswap V3 Positions</Text>
+              <Spacing variant={PaddingSize.Narrow} />
+              {agentWallet ? (
+                <React.Fragment>
+                  {agentWallet.uniswapPositions.length > 0 ? (
+                    <React.Fragment>
+                      {agentWallet.uniswapPositions.map((position) => {
+                        const token0Amount = Number(position.token0Amount) / (10 ** position.token0.decimals);
+                        const token1Amount = Number(position.token1Amount) / (10 ** position.token1.decimals);
+                        return (
+                          <React.Fragment key={position.tokenId}>
+                            <Text variant='bold'>{`$${position.totalValueUsd.toFixed(2)}`}</Text>
+                            <Text variant='note'>
+                              {token0Amount.toFixed(6)}
+                              {' '}
+                              {position.token0.symbol}
+                              {' ($'}
+                              {position.token0ValueUsd.toFixed(2)}
+                              )
+                            </Text>
+                            <Text variant='note'>
+                              {token1Amount.toFixed(2)}
+                              {' '}
+                              {position.token1.symbol}
+                              {' ($'}
+                              {position.token1ValueUsd.toFixed(2)}
+                              )
+                            </Text>
+                            <Spacing variant={PaddingSize.Narrow} />
+                          </React.Fragment>
+                        );
+                      })}
+                    </React.Fragment>
+                  ) : (
+                    <Text variant='note'>No positions</Text>
+                  )}
+                </React.Fragment>
+              ) : (
+                <LoadingShimmer width='120px' height='32px' />
+              )}
+            </Stack>
+          </Box>
           <Box variant='card' isFullWidth={true}>
             <Stack direction={Direction.Vertical} shouldAddGutters={false}>
               <Text variant='note'>Total Value</Text>
               <Spacing variant={PaddingSize.Narrow} />
               {agentWallet ? (
-                <React.Fragment>
-                  <Text variant='extraLarge-fancy-bold'>{`$${totalValue.toFixed(2)}`}</Text>
-                  <Spacing variant={PaddingSize.Narrow} />
-                  {agentWallet.assetBalances.map((balance) => {
-                    const amount = Number(balance.balance) / (10 ** balance.asset.decimals);
-                    const value = amount * balance.assetPrice.priceUsd;
-                    if (amount === 0) {
-                      return null;
-                    }
-                    return (
-                      <Text key={balance.asset.assetId} variant='note'>
-                        {amount.toFixed(balance.asset.symbol === 'USDC' ? 2 : 6)}
-                        {' '}
-                        {balance.asset.symbol}
-                        {' '}
-                        ($
-                        {value.toFixed(2)}
-                        )
-                      </Text>
-                    );
-                  })}
-                </React.Fragment>
+                <Text variant='extraLarge-fancy-bold'>{`$${totalValue.toFixed(2)}`}</Text>
               ) : (
                 <LoadingShimmer width='120px' height='32px' />
               )}
@@ -421,17 +487,6 @@ export function DashboardPage(): React.ReactElement {
                     </React.Fragment>
                   )}
                 </React.Fragment>
-              )}
-            </Stack>
-          </Box>
-          <Box variant='card' isFullWidth={true}>
-            <Stack direction={Direction.Vertical} shouldAddGutters={false}>
-              <Text variant='note'>Current APY</Text>
-              <Spacing variant={PaddingSize.Narrow} />
-              {agentWallet ? (
-                <Text variant='extraLarge-fancy-bold-branded'>0%</Text>
-              ) : (
-                <LoadingShimmer width='80px' height='32px' />
               )}
             </Stack>
           </Box>

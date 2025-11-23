@@ -199,10 +199,39 @@ export class AssetBalance {
   };
 }
 
+export class UniswapPosition {
+  public constructor(
+    readonly tokenId: number,
+    readonly poolAddress: string,
+    readonly token0: Asset,
+    readonly token1: Asset,
+    readonly token0Amount: number,
+    readonly token1Amount: number,
+    readonly token0ValueUsd: number,
+    readonly token1ValueUsd: number,
+    readonly totalValueUsd: number,
+  ) { }
+
+  public static fromObject = (obj: RawObject): UniswapPosition => {
+    return new UniswapPosition(
+      Number(obj.tokenId),
+      String(obj.poolAddress),
+      Asset.fromObject(obj.token0 as RawObject),
+      Asset.fromObject(obj.token1 as RawObject),
+      Number(obj.token0Amount),
+      Number(obj.token1Amount),
+      Number(obj.token0ValueUsd),
+      Number(obj.token1ValueUsd),
+      Number(obj.totalValueUsd),
+    );
+  };
+}
+
 export class Wallet {
   public constructor(
     readonly walletAddress: string,
     readonly assetBalances: AssetBalance[],
+    readonly uniswapPositions: UniswapPosition[],
     readonly delegatedSmartWallet: string | null,
   ) { }
 
@@ -210,6 +239,7 @@ export class Wallet {
     return new Wallet(
       String(obj.walletAddress),
       (obj.assetBalances as RawObject[]).map((balance: RawObject): AssetBalance => AssetBalance.fromObject(balance)),
+      (obj.uniswapPositions as RawObject[]).map((position: RawObject): UniswapPosition => UniswapPosition.fromObject(position)),
       obj.delegatedSmartWallet ? String(obj.delegatedSmartWallet) : null,
     );
   };

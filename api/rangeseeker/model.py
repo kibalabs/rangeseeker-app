@@ -78,9 +78,22 @@ class AssetBalance(BaseModel):
     balance: int
 
 
+class UniswapPosition(BaseModel):
+    tokenId: int
+    poolAddress: str
+    token0: Asset
+    token1: Asset
+    token0Amount: int
+    token1Amount: int
+    token0ValueUsd: float
+    token1ValueUsd: float
+    totalValueUsd: float
+
+
 class Wallet(BaseModel):
     walletAddress: str
     assetBalances: list[AssetBalance]
+    uniswapPositions: list[UniswapPosition]
     delegatedSmartWallet: str | None
 
 
