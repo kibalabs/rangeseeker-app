@@ -42,6 +42,7 @@ from rangeseeker.model import UserWallet
 from rangeseeker.model import Wallet
 from rangeseeker.strategy_manager import StrategyManager
 from rangeseeker.strategy_parser import StrategyDefinition
+from rangeseeker.uniswap_abis import UNISWAP_V3_POSITION_MANAGER_POSITIONS_ABI
 from rangeseeker.user_manager import UserManager
 
 PYTH_ETH_USD_PRICE_ID = '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace'
@@ -408,6 +409,20 @@ class AppManager(Authorizer):
         logging.info(f'[REBALANCE] Agent wallet address: {agentWallet.walletAddress}')
         strategy = await self.strategyManager.get_strategy(strategyId=agent.strategyId)
         logging.info(f'[REBALANCE] Strategy loaded: {strategy.strategyId}')
+
+        # Check for existing Uniswap positions and withdraw them first
+        positions = await self.get_wallet_uniswap_positions(walletAddress=agentWallet.walletAddress)
+        if positions:
+            logging.info(f'[REBALANCE] Found {len(positions)} existing Uniswap positions, withdrawing...')
+            for position in positions:
+                logging.info(f'[REBALANCE] Withdrawing position {position.tokenId}')
+                await self._withdraw_from_uniswap_v3(
+                    chainId=8453,
+                    walletAddress=agentWallet.walletAddress,
+                    tokenId=position.tokenId,
+                )
+            logging.info('[REBALANCE] All positions withdrawn')
+
         balances = await self.get_wallet_balances(chainId=8453, walletAddress=agentWallet.walletAddress)
         logging.info(f'[REBALANCE] Fetched {len(balances)} token balances')
         wethBalance = next((b for b in balances if b.asset.address == constants.CHAIN_WETH_MAP[constants.BASE_CHAIN_ID]), None)
@@ -487,8 +502,6 @@ class AppManager(Authorizer):
             walletAddress=agentWallet.walletAddress,
             wethAmount=wethBalance.balance,
             usdcAmount=usdcBalance.balance,
-            priceLower=priceLower,
-            priceUpper=priceUpper,
         )
         logging.info('[REBALANCE] Rebalance completed successfully!')
 
@@ -563,14 +576,28 @@ class AppManager(Authorizer):
             logging.exception(f'[SWAP] Transaction dict: {transactionDict}')
             raise
 
-    async def _deposit_to_uniswap_v3(self, chainId: int, walletAddress: str, wethAmount: int, usdcAmount: int, priceLower: float, priceUpper: float) -> None:
-        logging.info(f'[UNISWAP] Calculating ticks - priceLower: {priceLower:.2f}, priceUpper: {priceUpper:.2f}')
-        tickLower = math.floor(math.log(priceLower, 1.0001))
-        tickUpper = math.ceil(math.log(priceUpper, 1.0001))
+    async def _deposit_to_uniswap_v3(self, chainId: int, walletAddress: str, wethAmount: int, usdcAmount: int) -> None:
+        # Get the actual pool to get current tick and calculate proper tick range
+        pool = await self.strategyManager.uniswapClient.get_pool(
+            token0Address=constants.CHAIN_WETH_MAP[chainId],
+            token1Address=constants.CHAIN_USDC_MAP[chainId],
+            feeTier=500,
+        )
+        currentTick = pool.tick
+
+        # Calculate tick range as percentage from current tick
+        rangePercent = 0.1  # 10% range
+        # Tick spacing for 0.05% fee tier is 10
         tickSpacing = 10
-        tickLower = int((tickLower // tickSpacing) * tickSpacing)
-        tickUpper = int((tickUpper // tickSpacing) * tickSpacing)
-        logging.info(f'[UNISWAP] Ticks calculated - lower: {tickLower}, upper: {tickUpper}')
+
+        # Calculate range in ticks (approximately 1% price change ≈ 100 ticks)
+        tickRange = int((rangePercent * 10000) / tickSpacing) * tickSpacing
+        tickLower = ((currentTick - tickRange) // tickSpacing) * tickSpacing
+        tickUpper = ((currentTick + tickRange) // tickSpacing) * tickSpacing
+
+        logging.info(f'[UNISWAP] Current pool tick: {currentTick}')
+        logging.info(f'[UNISWAP] Calculated tick range - lower: {tickLower}, upper: {tickUpper}')
+
         positionManagerAddress = constants.CHAIN_UNISWAP_V3_NONFUNGIBLE_POSITION_MANAGER_MAP[chainId]
         token0 = constants.CHAIN_WETH_MAP[chainId]
         token1 = constants.CHAIN_USDC_MAP[chainId]
@@ -619,6 +646,113 @@ class AppManager(Authorizer):
         logging.info(f'[UNISWAP] Mint transaction broadcast successfully: {txHash}')
         receipt = await self.ethClient.wait_for_transaction_receipt(transactionHash=txHash)
         logging.info(f'[UNISWAP] Mint transaction mined in block {receipt["blockNumber"]}')
+
+    async def _withdraw_from_uniswap_v3(self, chainId: int, walletAddress: str, tokenId: int) -> None:
+        logging.info(f'[UNISWAP] Withdrawing position {tokenId}')
+        positionManagerAddress = constants.CHAIN_UNISWAP_V3_NONFUNGIBLE_POSITION_MANAGER_MAP[chainId]
+        deadline = int(datetime.datetime.now(tz=datetime.UTC).timestamp()) + 1200
+
+        # Step 1: Get position data to find actual liquidity amount
+        # positions(uint256 tokenId) returns (nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, ...)
+        positionData = await self.ethClient.call_function_by_name(
+            toAddress=positionManagerAddress,
+            contractAbi=UNISWAP_V3_POSITION_MANAGER_POSITIONS_ABI,
+            functionName='positions',
+            fromAddress=walletAddress,
+            arguments={'tokenId': tokenId},
+        )
+
+        liquidity = int(positionData[7])
+        logging.info(f'[UNISWAP] Position {tokenId} has liquidity: {liquidity}')
+
+        if liquidity == 0:
+            logging.info(f'[UNISWAP] Position {tokenId} has no liquidity, skipping decreaseLiquidity')
+        else:
+            # Step 2: Decrease liquidity to 0
+            # decreaseLiquidity(uint256 tokenId, uint128 liquidity, uint256 amount0Min, uint256 amount1Min, uint256 deadline)
+            decreaseLiquidityData = self._encode_decrease_liquidity_params(
+                tokenId=tokenId,
+                liquidity=liquidity,
+                amount0Min=0,
+                amount1Min=0,
+                deadline=deadline,
+            )
+
+            logging.info('[UNISWAP] Broadcasting decreaseLiquidity transaction')
+            transactionDict: TxParams = {
+                'from': chain_util.normalize_address(value=walletAddress),
+                'to': chain_util.normalize_address(value=positionManagerAddress),
+                'value': Wei(0),
+                'data': typing.cast(HexStr, decreaseLiquidityData),
+            }
+            filledTransaction = await self.ethClient.fill_transaction_params(
+                params=transactionDict,
+                fromAddress=walletAddress,
+                chainId=chainId,
+            )
+            signedTx = await self.userManager.coinbaseCdpClient.sign_transaction(
+                walletAddress=walletAddress,
+                transactionDict=filledTransaction,
+            )
+            txHash = await self.ethClient.send_raw_transaction(transactionData=signedTx)
+            logging.info(f'[UNISWAP] decreaseLiquidity transaction broadcast: {txHash}')
+            receipt = await self.ethClient.wait_for_transaction_receipt(transactionHash=txHash)
+            logging.info(f'[UNISWAP] decreaseLiquidity transaction mined in block {receipt["blockNumber"]}')
+
+        # Step 3: Collect the tokens (including any fees)
+        # collect(uint256 tokenId, address recipient, uint128 amount0Max, uint128 amount1Max)
+        maxAmount = (2**128) - 1
+        collectData = self._encode_collect_params(
+            tokenId=tokenId,
+            recipient=walletAddress,
+            amount0Max=maxAmount,
+            amount1Max=maxAmount,
+        )
+
+        logging.info('[UNISWAP] Broadcasting collect transaction')
+        transactionDict = {
+            'from': chain_util.normalize_address(value=walletAddress),
+            'to': chain_util.normalize_address(value=positionManagerAddress),
+            'value': Wei(0),
+            'data': typing.cast(HexStr, collectData),
+        }
+        filledTransaction = await self.ethClient.fill_transaction_params(
+            params=transactionDict,
+            fromAddress=walletAddress,
+            chainId=chainId,
+        )
+        signedTx = await self.userManager.coinbaseCdpClient.sign_transaction(
+            walletAddress=walletAddress,
+            transactionDict=filledTransaction,
+        )
+        txHash = await self.ethClient.send_raw_transaction(transactionData=signedTx)
+        logging.info(f'[UNISWAP] collect transaction broadcast: {txHash}')
+        receipt = await self.ethClient.wait_for_transaction_receipt(transactionHash=txHash)
+        logging.info(f'[UNISWAP] collect transaction mined in block {receipt["blockNumber"]}')
+        logging.info(f'[UNISWAP] Position {tokenId} fully withdrawn')
+
+    def _encode_decrease_liquidity_params(self, tokenId: int, liquidity: int, amount0Min: int, amount1Min: int, deadline: int) -> str:
+        # decreaseLiquidity((uint256,uint128,uint256,uint256,uint256))
+        functionSelector = '0x0c49ccbe'
+        params = [
+            f'{tokenId:x}'.zfill(64),
+            f'{liquidity:x}'.zfill(64),
+            f'{amount0Min:x}'.zfill(64),
+            f'{amount1Min:x}'.zfill(64),
+            f'{deadline:x}'.zfill(64),
+        ]
+        return functionSelector + ''.join(params)
+
+    def _encode_collect_params(self, tokenId: int, recipient: str, amount0Max: int, amount1Max: int) -> str:
+        # collect((uint256,address,uint128,uint128))
+        functionSelector = '0xfc6f7865'
+        params = [
+            f'{tokenId:x}'.zfill(64),
+            recipient[2:].zfill(64),
+            f'{amount0Max:x}'.zfill(64),
+            f'{amount1Max:x}'.zfill(64),
+        ]
+        return functionSelector + ''.join(params)
 
     def _encode_mint_params(self, token0: str, token1: str, fee: int, tickLower: int, tickUpper: int, amount0Desired: int, amount1Desired: int, amount0Min: int, amount1Min: int, recipient: str, deadline: int) -> str:
         functionSelector = '0x88316456'
