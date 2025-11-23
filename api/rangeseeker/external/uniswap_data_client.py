@@ -364,11 +364,18 @@ class UniswapDataClient:
         """Get all active Uniswap V3 positions for a wallet with token balances."""
         walletAddressNormalized = chain_util.normalize_address(walletAddress)
 
-        # Step 1: Get owned position token IDs
+        # Step 1: Get currently owned position token IDs (check latest transfer event for each token)
         sql_positions = f"""
-        SELECT DISTINCT event."tokenId" as token_id
-        FROM "{self.ampDatasetName}".event__position_manager_transfer
-        WHERE event."to" = {walletAddressNormalized}
+        WITH latest_transfers AS (
+            SELECT
+                event."tokenId" as token_id,
+                event."to" as current_owner,
+                ROW_NUMBER() OVER (PARTITION BY event."tokenId" ORDER BY block_num DESC, log_index DESC) as rn
+            FROM "{self.ampDatasetName}".event__position_manager_transfer
+        )
+        SELECT DISTINCT token_id
+        FROM latest_transfers
+        WHERE rn = 1 AND current_owner = {walletAddressNormalized}
         LIMIT 100
         """
 
@@ -377,30 +384,56 @@ class UniswapDataClient:
         if not token_ids:
             return []
 
-        # Step 2: For each token ID, get latest amounts
+        # Step 2: For each token ID, get latest amounts (only non-zero positions)
         positions = []
         for token_id in token_ids:
+            # Check if there are any DecreaseLiquidity events - if so, position might be closed
             sql_amounts = f"""
+            WITH increase_events AS (
+                SELECT
+                    CAST(event."amount0" AS BIGINT) as amount0,
+                    CAST(event."amount1" AS BIGINT) as amount1,
+                    block_num,
+                    log_index
+                FROM "{self.ampDatasetName}".event__position_manager_increase_liquidity
+                WHERE event."tokenId" = {token_id}
+            ),
+            decrease_events AS (
+                SELECT
+                    -CAST(event."amount0" AS BIGINT) as amount0,
+                    -CAST(event."amount1" AS BIGINT) as amount1,
+                    block_num,
+                    log_index
+                FROM "{self.ampDatasetName}".event__position_manager_decrease_liquidity
+                WHERE event."tokenId" = {token_id}
+            ),
+            all_events AS (
+                SELECT * FROM increase_events
+                UNION ALL
+                SELECT * FROM decrease_events
+            )
             SELECT
-                event."amount0" as amount0,
-                event."amount1" as amount1
-            FROM "{self.ampDatasetName}".event__position_manager_increase_liquidity
-            WHERE event."tokenId" = {token_id}
-            ORDER BY block_num DESC
-            LIMIT 1
+                SUM(amount0) as total_amount0,
+                SUM(amount1) as total_amount1
+            FROM all_events
             """
 
             async for row in self.ampClient.execute_sql(sql_amounts):
-                positions.append(
-                    WalletPosition(
-                        tokenId=token_id,
-                        poolAddress='',  # Will fetch on-chain
-                        token0='',  # Will fetch on-chain
-                        token1='',  # Will fetch on-chain
-                        amount0=int(cast(int, row.get('amount0', 0))),
-                        amount1=int(cast(int, row.get('amount1', 0))),
+                total_amount0 = int(cast(int, row.get('total_amount0', 0)))
+                total_amount1 = int(cast(int, row.get('total_amount1', 0)))
+
+                # Only include positions with non-zero amounts
+                if total_amount0 > 0 or total_amount1 > 0:
+                    positions.append(
+                        WalletPosition(
+                            tokenId=token_id,
+                            poolAddress='',  # Will fetch on-chain
+                            token0='',  # Will fetch on-chain
+                            token1='',  # Will fetch on-chain
+                            amount0=total_amount0,
+                            amount1=total_amount1,
+                        )
                     )
-                )
                 break
 
         return positions

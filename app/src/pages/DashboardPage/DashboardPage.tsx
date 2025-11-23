@@ -12,10 +12,12 @@ import { Agent, PreviewDeposit, Strategy, Wallet } from '../../client/resources'
 import { LoadingShimmer } from '../../components/LoadingShimmer';
 import { PriceChart } from '../../components/PriceChart';
 import { useGlobals } from '../../GlobalsContext';
+import { usePoolDataQuery, usePoolHistoricalDataQuery } from '../../util';
 
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
 const BASE_CHAIN_ID = 8453;
+const CHAIN_ID = 8453;
 
 const IconBox = styled.div`
   width: 40px;
@@ -73,6 +75,9 @@ export function DashboardPage(): React.ReactElement {
   const [depositSteps, setDepositSteps] = React.useState<Array<{ label: string; status: 'pending' | 'loading' | 'success' | 'error' }>>([]);
   const [isRebalancing, setIsRebalancing] = React.useState(false);
   const [agentEthBalance, setAgentEthBalance] = React.useState<bigint>(BigInt(0));
+
+  const { data: poolData } = usePoolDataQuery(CHAIN_ID, WETH_ADDRESS, USDC_ADDRESS);
+  const { data: historicalData, isLoading: isLoadingHistorical } = usePoolHistoricalDataQuery(CHAIN_ID, WETH_ADDRESS, USDC_ADDRESS, 24 * 7);
 
   useInitialization(() => {
     const init = async () => {
@@ -155,7 +160,7 @@ export function DashboardPage(): React.ReactElement {
   }, [depositPreview]);
 
   const totalValue = React.useMemo(() => {
-    if (!agentWallet) {
+    if (!agentWallet || !agentWallet.assetBalances || !agentWallet.uniswapPositions) {
       return 0;
     }
     const assetValue = agentWallet.assetBalances.reduce((acc, balance) => {
@@ -167,6 +172,26 @@ export function DashboardPage(): React.ReactElement {
     }, 0);
     return assetValue + positionsValue;
   }, [agentWallet]);
+
+  const strategyDefinition = React.useMemo(() => {
+    if (!strategy || !strategy.rulesJson || !strategy.rulesJson.rules) {
+      console.log('No strategy definition:', { hasStrategy: !!strategy, hasRulesJson: !!strategy?.rulesJson, hasRules: !!strategy?.rulesJson?.rules });
+      return null;
+    }
+    try {
+      const definition = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        rules: strategy.rulesJson.rules as any[],
+        feedRequirements: strategy.feedRequirements,
+        summary: strategy.summary,
+      };
+      console.log('Strategy definition created:', definition);
+      return definition;
+    } catch (error) {
+      console.error('Failed to parse strategy definition:', error);
+      return null;
+    }
+  }, [strategy]);
 
   const onRebalanceClicked = async () => {
     if (!authToken || !agentId) {
@@ -562,9 +587,20 @@ export function DashboardPage(): React.ReactElement {
           </Stack>
         </Box>
         <Spacing variant={PaddingSize.Default} />
-        <Box width='100%' height='300px'>
-          <PriceChart />
-        </Box>
+        {isLoadingHistorical ? (
+          <Box width='100%' height='300px'>
+            <LoadingShimmer height='300px' />
+          </Box>
+        ) : (
+          <Box width='100%' height='300px'>
+            <PriceChart
+              priceData={historicalData?.pricePoints}
+              strategyDefinition={strategyDefinition}
+              currentPrice={poolData?.currentPrice}
+              uniswapPositions={agentWallet?.uniswapPositions}
+            />
+          </Box>
+        )}
       </Stack>
     </Stack>
   );

@@ -23,7 +23,7 @@ const ShimmerBox = styled.div<{ width?: string; height?: string }>`
   background-size: 1000px 100%;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 0px;
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   animation: ${shimmer} 2s infinite;
   border-radius: 8px;

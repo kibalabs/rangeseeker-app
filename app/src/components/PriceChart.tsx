@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { Box } from '@kibalabs/ui-react';
 import { AreaSeries, ColorType, createChart, IChartApi, IPriceLine, LineSeries, Time } from 'lightweight-charts';
 
-import { StrategyDefinition } from '../client/resources';
+import { StrategyDefinition, UniswapPosition } from '../client/resources';
 
 export interface PriceDataPoint {
   timestamp: number;
@@ -14,6 +14,7 @@ interface PriceChartProps {
   priceData?: PriceDataPoint[];
   strategyDefinition?: StrategyDefinition | null;
   currentPrice?: number;
+  uniswapPositions?: UniswapPosition[];
 }
 
 export function PriceChart(props: PriceChartProps) {
@@ -114,8 +115,47 @@ export function PriceChart(props: PriceChartProps) {
       });
     }
 
+    // Helper function to convert tick to price
+    const tickToPrice = (tick: number): number => {
+      return 1.0001 ** tick;
+    };
+
+    // Add current position bands
+    if (props.uniswapPositions && props.uniswapPositions.length > 0) {
+      props.uniswapPositions.forEach((position, index) => {
+        if (position.tickLower !== null && position.tickUpper !== null) {
+          const priceLower = tickToPrice(position.tickLower);
+          const priceUpper = tickToPrice(position.tickUpper);
+
+          priceLines.push(
+            lineSeries.createPriceLine({
+              price: priceLower,
+              color: '#00FF00',
+              lineWidth: 2,
+              lineStyle: 0,
+              axisLabelVisible: true,
+              title: `Position ${index + 1} Lower`,
+            }),
+            lineSeries.createPriceLine({
+              price: priceUpper,
+              color: '#00FF00',
+              lineWidth: 2,
+              lineStyle: 0,
+              axisLabelVisible: true,
+              title: `Position ${index + 1} Upper`,
+            }),
+          );
+        }
+      });
+    }
+
     // Add strategy overlays
-    if (props.strategyDefinition && props.currentPrice) {
+    if (props.strategyDefinition && props.strategyDefinition.rules && props.currentPrice) {
+      console.log('Drawing strategy overlays:', {
+        rulesCount: props.strategyDefinition.rules.length,
+        currentPrice: props.currentPrice,
+        rules: props.strategyDefinition.rules,
+      });
       const rangeRule = props.strategyDefinition.rules.find((rule) => rule.type === 'RANGE_WIDTH');
       const priceThresholdRules = props.strategyDefinition.rules.filter((rule) => rule.type === 'PRICE_THRESHOLD');
 
@@ -204,7 +244,7 @@ export function PriceChart(props: PriceChartProps) {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [props.priceData, props.strategyDefinition, props.currentPrice]);
+  }, [props.priceData, props.strategyDefinition, props.currentPrice, props.uniswapPositions]);
 
   return (
     <Box ref={chartContainerRef} width='100%' height='100%' />

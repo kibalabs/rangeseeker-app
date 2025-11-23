@@ -186,9 +186,21 @@ class AppManager(Authorizer):
         prices = await self.pythClient.get_prices(priceIds=[PYTH_ETH_USD_PRICE_ID, PYTH_USDC_USD_PRICE_ID])
         ethPriceUsd = prices.get(PYTH_ETH_USD_PRICE_ID, 0.0)
         usdcPriceUsd = prices.get(PYTH_USDC_USD_PRICE_ID, 0.0)
-
+        positionManagerAddress = constants.CHAIN_UNISWAP_V3_NONFUNGIBLE_POSITION_MANAGER_MAP[constants.BASE_CHAIN_ID]
         uniswapPositions = []
         for position in positions:
+            # Fetch tick information from position manager contract
+            positionData = await self.ethClient.call_function_by_name(
+                toAddress=positionManagerAddress,
+                contractAbi=UNISWAP_V3_POSITION_MANAGER_POSITIONS_ABI,
+                functionName='positions',
+                fromAddress=walletAddress,
+                arguments={'tokenId': position.tokenId},
+            )
+            # positionData returns: [nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, ...]
+            tickLower = int(positionData[5])
+            tickUpper = int(positionData[6])
+
             # For now, hardcode WETH/USDC since that's what we're using
             # TODO(krishan): Fetch token details from on-chain or TheGraph
             token0 = Asset(
@@ -228,6 +240,8 @@ class AppManager(Authorizer):
                     token0ValueUsd=token0ValueUsd,
                     token1ValueUsd=token1ValueUsd,
                     totalValueUsd=totalValueUsd,
+                    tickLower=tickLower,
+                    tickUpper=tickUpper,
                 )
             )
 

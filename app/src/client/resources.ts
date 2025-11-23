@@ -210,6 +210,8 @@ export class UniswapPosition {
     readonly token0ValueUsd: number,
     readonly token1ValueUsd: number,
     readonly totalValueUsd: number,
+    readonly tickLower: number | null,
+    readonly tickUpper: number | null,
   ) { }
 
   public static fromObject = (obj: RawObject): UniswapPosition => {
@@ -223,6 +225,8 @@ export class UniswapPosition {
       Number(obj.token0ValueUsd),
       Number(obj.token1ValueUsd),
       Number(obj.totalValueUsd),
+      obj.tickLower !== null && obj.tickLower !== undefined ? Number(obj.tickLower) : null,
+      obj.tickUpper !== null && obj.tickUpper !== undefined ? Number(obj.tickUpper) : null,
     );
   };
 }
