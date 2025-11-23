@@ -8,6 +8,7 @@ import uuid
 from urllib.parse import urlparse
 
 import jwt
+import rlp  # type: ignore[import-untyped]
 from core.exceptions import KibaException
 from core.http.rest_method import RestMethod
 from core.requester import Requester
@@ -17,7 +18,10 @@ from core.util.typing_util import JsonObject
 from cryptography.hazmat.primitives import asymmetric
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
+from eth_utils import encode_hex
+from eth_utils import to_bytes
 from pydantic import BaseModel
+from web3.types import TxParams
 
 from rangeseeker import constants
 
@@ -186,3 +190,99 @@ class CoinbaseCdpClient:
             if not pageToken:
                 break
         return allBalances
+
+    async def sign_transaction(self, walletAddress: str, transactionDict: TxParams) -> str:
+        method = RestMethod.POST
+        url = f'https://api.cdp.coinbase.com/platform/v2/evm/accounts/{walletAddress}/sign/transaction'
+        transactionParts = [
+            int(transactionDict['chainId'], 16) if isinstance(transactionDict['chainId'], str) else int(transactionDict['chainId']),  # type: ignore[unreachable]
+            int(transactionDict['nonce'], 16) if isinstance(transactionDict['nonce'], str) else int(transactionDict['nonce']),  # type: ignore[unreachable]
+            int(transactionDict['maxPriorityFeePerGas'], 16) if isinstance(transactionDict['maxPriorityFeePerGas'], str) else int(transactionDict['maxPriorityFeePerGas']),
+            int(transactionDict['maxFeePerGas'], 16) if isinstance(transactionDict['maxFeePerGas'], str) else int(transactionDict['maxFeePerGas']),
+            int(transactionDict['gas'], 16) if isinstance(transactionDict['gas'], str) else int(transactionDict['gas']),  # type: ignore[unreachable]
+            to_bytes(hexstr=transactionDict['to']),
+            int(transactionDict['value'], 16) if isinstance(transactionDict['value'], str) else int(transactionDict['value']),  # type: ignore[unreachable]
+            to_bytes(hexstr=transactionDict['data']),
+            transactionDict.get('accessList', []),
+        ]
+        transactionStringBytes = b'\x02' + rlp.encode(transactionParts)
+        transactionString = encode_hex(transactionStringBytes)
+        dataDict = {'transaction': transactionString}
+        headers = self._build_wallet_api_headers(url=url, method=method, body=dataDict)
+        response = await self.requester.make_request(method=method, url=url, dataDict=dataDict, headers=headers)
+        responseDict = response.json()
+        return typing.cast(str, responseDict['signedTransaction'])
+
+    async def sign_eip712(self, walletAddress: str, typedData: JsonObject) -> str:
+        """Sign EIP-712 typed data using CDP wallet API."""
+        method = RestMethod.POST
+        url = f'https://api.cdp.coinbase.com/platform/v2/evm/accounts/{walletAddress}/sign/eip712'
+        dataDict = {'typedData': typedData}
+        headers = self._build_wallet_api_headers(url=url, method=method, body=dataDict)
+        response = await self.requester.make_request(method=method, url=url, dataDict=dataDict, headers=headers)
+        responseDict = response.json()
+        return typing.cast(str, responseDict['signature'])
+
+    async def get_swap_quote(self, chainId: int, walletAddress: str, fromAssetAddress: str, toAssetAddress: str, amount: int) -> JsonObject:
+        """Get swap quote from Coinbase CDP API."""
+        if chainId == constants.BASE_CHAIN_ID:
+            network = 'base'
+        else:
+            raise KibaException(f'Unsupported chainId: {chainId}')
+        method = RestMethod.GET
+        url = 'https://api.cdp.coinbase.com/platform/v2/evm/swaps/quote'
+        dataDict: JsonObject = {
+            'network': network,
+            'fromToken': fromAssetAddress,
+            'toToken': toAssetAddress,
+            'fromAmount': str(amount),
+            'taker': walletAddress,
+        }
+        headers = self._build_api_headers(url=url, method=method)
+        response = await self.requester.make_request(method=method, url=url, headers=headers, dataDict=dataDict)
+        return typing.cast(JsonObject, response.json())
+
+    async def create_swap(self, chainId: int, walletAddress: str, fromAssetAddress: str, toAssetAddress: str, amount: int) -> JsonObject:
+        """Create AND BROADCAST swap transaction via Coinbase CDP API.
+
+        CDP's swap API uses Permit2 which requires:
+        1. Getting the swap quote with Permit2 EIP-712 data
+        2. Signing the Permit2 message
+        3. Broadcasting the transaction with the signed permit
+
+        This method handles all three steps automatically.
+        """
+        if chainId == constants.BASE_CHAIN_ID:
+            network = 'base'
+        else:
+            raise KibaException(f'Unsupported chainId: {chainId}')
+
+        # Step 1: Get swap quote with Permit2 data
+        method = RestMethod.POST
+        url = 'https://api.cdp.coinbase.com/platform/v2/evm/swaps'
+        payload: JsonObject = {
+            'network': network,
+            'fromToken': fromAssetAddress,
+            'toToken': toAssetAddress,
+            'fromAmount': str(amount),
+            'taker': walletAddress,
+        }
+        headers = self._build_wallet_api_headers(url=url, method=method, body=payload)
+        response = await self.requester.make_request(method=method, url=url, dataDict=payload, headers=headers)
+        swapResponse = typing.cast(JsonObject, response.json())
+
+        # Step 2: Check if this requires Permit2 signing
+        permit2Data = swapResponse.get('permit2')
+        if permit2Data and isinstance(permit2Data, dict):
+            eip712Data = permit2Data.get('eip712')
+            if eip712Data and isinstance(eip712Data, dict):
+                # Sign the Permit2 EIP-712 message
+                permitSignature = await self.sign_eip712(
+                    walletAddress=walletAddress,
+                    typedData=typing.cast(JsonObject, eip712Data),
+                )
+                # Store the signature in the response for later use
+                permit2DataDict = typing.cast(dict[str, str | JsonObject], permit2Data)
+                permit2DataDict['signature'] = permitSignature
+
+        return swapResponse

@@ -85,6 +85,7 @@ export function DashboardPage(): React.ReactElement {
   const [depositError, setDepositError] = React.useState<string | null>(null);
   const [depositSteps, setDepositSteps] = React.useState<Array<{ label: string; status: 'pending' | 'loading' | 'success' | 'error' }>>([]);
   const [isRebalancing, setIsRebalancing] = React.useState(false);
+  const [agentEthBalance, setAgentEthBalance] = React.useState<bigint>(BigInt(0));
 
   useInitialization(() => {
     const init = async () => {
@@ -99,6 +100,22 @@ export function DashboardPage(): React.ReactElement {
     };
     init();
   });
+
+  const fetchAgentEthBalance = React.useCallback(async () => {
+    if (web3 && agentWallet) {
+      try {
+        const provider = web3 as ethers.BrowserProvider;
+        const balance = await provider.getBalance(agentWallet.walletAddress);
+        setAgentEthBalance(balance);
+      } catch (error) {
+        console.error('Failed to fetch agent ETH balance:', error);
+      }
+    }
+  }, [web3, agentWallet]);
+
+  React.useEffect(() => {
+    fetchAgentEthBalance();
+  }, [fetchAgentEthBalance]);
 
   const fetchBalances = React.useCallback(async () => {
     if (web3) {
@@ -187,8 +204,15 @@ export function DashboardPage(): React.ReactElement {
       return;
     }
 
+    // Check if agent needs ETH for gas
+    const minEthBalance = ethers.parseEther('0.0005');
+    const ethToDeposit = agentEthBalance < minEthBalance ? ethers.parseEther('0.001') : BigInt(0);
+
     // Build steps list
     const steps: Array<{ label: string; status: 'pending' | 'loading' | 'success' | 'error' }> = [];
+    if (ethToDeposit > BigInt(0)) {
+      steps.push({ label: 'Send 0.001 ETH for gas', status: 'pending' });
+    }
     if (usdcDepositAmount && Number(usdcDepositAmount) > 0) {
       steps.push({ label: `Send ${usdcDepositAmount} USDC`, status: 'pending' });
     }
@@ -203,6 +227,23 @@ export function DashboardPage(): React.ReactElement {
     try {
       const signer = await (web3 as ethers.BrowserProvider).getSigner();
       let currentStepIndex = 0;
+
+      // ETH transfer for gas
+      if (ethToDeposit > BigInt(0)) {
+        setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'loading' } : s)));
+        try {
+          const tx = await signer.sendTransaction({
+            to: agentWallet.walletAddress,
+            value: ethToDeposit,
+          });
+          await tx.wait();
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'success' } : s)));
+          currentStepIndex += 1;
+        } catch (error) {
+          setDepositSteps((prev) => prev.map((s, i) => (i === currentStepIndex ? { ...s, status: 'error' } : s)));
+          throw error;
+        }
+      }
 
       // USDC transfer
       if (usdcDepositAmount && Number(usdcDepositAmount) > 0) {
@@ -305,17 +346,12 @@ export function DashboardPage(): React.ReactElement {
       <Stack direction={Direction.Vertical} childAlignment={Alignment.Center} shouldAddGutters={true} maxWidth='1000px' isFullWidth={true}>
         <Text variant='header1'>Dashboard</Text>
         <Spacing variant={PaddingSize.Wide} />
-        <Stack direction={Direction.Horizontal} shouldAddGutters={true} isFullWidth={true}>
+        <Stack direction={Direction.Horizontal} shouldAddGutters={true} isFullWidth={true} childAlignment={Alignment.Start}>
           <Stack direction={Direction.Horizontal} shouldAddGutters={true} childAlignment={Alignment.Center}>
             <IconBox>{agent.emoji}</IconBox>
             <Stack direction={Direction.Vertical}>
               <Text variant='header3'>{agent.name}</Text>
-              {strategy ? (
-                <Text variant='note'>{strategy.summary}</Text>
-              ) : (
-                <LoadingShimmer width='300px' height='16px' />
-              )}
-              {agentWallet?.walletAddress && (
+              {agentWallet?.walletAddress ? (
                 <Stack direction={Direction.Horizontal} childAlignment={Alignment.Center} shouldAddGutters={true} contentAlignment={Alignment.Start}>
                   <Text variant='note'>{`${agentWallet.walletAddress.slice(0, 6)}...${agentWallet.walletAddress.slice(-4)}`}</Text>
                   <IconButton
@@ -323,6 +359,13 @@ export function DashboardPage(): React.ReactElement {
                     onClicked={() => navigator.clipboard.writeText(agentWallet.walletAddress)}
                   />
                 </Stack>
+              ) : (
+                <LoadingShimmer width='300px' height='16px' />
+              )}
+              {strategy ? (
+                <Text variant='note'>{strategy.summary}</Text>
+              ) : (
+                <LoadingShimmer width='300px' height='16px' />
               )}
             </Stack>
           </Stack>
@@ -360,6 +403,25 @@ export function DashboardPage(): React.ReactElement {
               ) : (
                 <LoadingShimmer width='120px' height='32px' />
               )}
+              {agentWallet && totalValue > 0 && chainId === BASE_CHAIN_ID && (
+                <React.Fragment>
+                  <Spacing variant={PaddingSize.Wide} />
+                  <Text variant='note'>{`Your agent has $${totalValue.toFixed(2)}. You can rebalance liquidity to optimize returns.`}</Text>
+                  <Spacing />
+                  <Button
+                    variant='secondary'
+                    text={isRebalancing ? 'Rebalancing...' : 'Rebalance Liquidity'}
+                    onClicked={onRebalanceClicked}
+                    isEnabled={!isRebalancing && !isDepositing}
+                  />
+                  {depositError && (
+                    <React.Fragment>
+                      <Spacing variant={PaddingSize.Wide} />
+                      <Text variant='error'>{depositError}</Text>
+                    </React.Fragment>
+                  )}
+                </React.Fragment>
+              )}
             </Stack>
           </Box>
           <Box variant='card' isFullWidth={true}>
@@ -374,29 +436,6 @@ export function DashboardPage(): React.ReactElement {
             </Stack>
           </Box>
         </EqualGrid>
-        {agentWallet && totalValue > 0 && chainId === BASE_CHAIN_ID && (
-          <React.Fragment>
-            <Box variant='card'>
-              <Stack direction={Direction.Vertical} padding={PaddingSize.Default} shouldAddGutters={true} childAlignment={Alignment.Center}>
-                <Text variant='note' alignment={TextAlignment.Center}>
-                  Your agent has $
-                  {totalValue.toFixed(2)}
-                  . You can rebalance liquidity to optimize returns.
-                </Text>
-                <Button
-                  variant='secondary'
-                  text={isRebalancing ? 'Rebalancing...' : 'Rebalance Liquidity'}
-                  onClicked={onRebalanceClicked}
-                  isEnabled={!isRebalancing && !isDepositing}
-                />
-                {depositError && (
-                  <Text variant='error'>{depositError}</Text>
-                )}
-              </Stack>
-            </Box>
-            <Spacing variant={PaddingSize.Wide} />
-          </React.Fragment>
-        )}
         <Box variant='card'>
           <Stack direction={Direction.Vertical} padding={PaddingSize.Default} shouldAddGutters={true} maxWidth='400px'>
             {chainId !== BASE_CHAIN_ID ? (

@@ -2,6 +2,7 @@ import os
 
 from core.requester import Requester
 from core.store.database import Database
+from core.web3.eth_client import RestEthClient
 
 from rangeseeker.app_manager import AppManager
 from rangeseeker.external.amp_client import AmpClient
@@ -9,6 +10,7 @@ from rangeseeker.external.coinbase_cdp_client import CoinbaseCdpClient
 from rangeseeker.external.gemini_llm import GeminiLLM
 from rangeseeker.external.pyth_client import PythClient
 from rangeseeker.external.uniswap_data_client import UniswapDataClient
+from rangeseeker.external.zerox_client import ZeroxClient
 from rangeseeker.strategy_manager import StrategyManager
 from rangeseeker.strategy_parser import StrategyParser
 from rangeseeker.user_manager import UserManager
@@ -44,6 +46,9 @@ def create_app_manager() -> AppManager:
         apiKeyPrivateKey=os.environ['CDP_API_KEY_PRIVATE_KEY'],
     )
     pythClient = PythClient(requester=requester)
+    baseEthClient = RestEthClient(url=os.environ['RPC_NODE_URL_8453'], chainId=8453, requester=requester)
+    zeroxApiKey = os.environ['ZEROX_API_KEY']
+    zeroxClient = ZeroxClient(requester=requester, apiKey=zeroxApiKey, ethClient=baseEthClient)
     userManager = UserManager(
         database=database,
         coinbaseCdpClient=coinbaseCdpClient,
@@ -54,5 +59,7 @@ def create_app_manager() -> AppManager:
         userManager=userManager,
         strategyManager=strategyManager,
         pythClient=pythClient,
+        ethClient=baseEthClient,
+        zeroxClient=zeroxClient,
     )
     return appManager
