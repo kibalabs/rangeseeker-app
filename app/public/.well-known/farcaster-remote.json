@@ -1,17 +1,17 @@
 {
   "accountAssociation": {
     "header": "eyJmaWQiOjk5NDEzMywidHlwZSI6ImF1dGgiLCJrZXkiOiIweDY0YzVlNUUwMTEyMDkyOTI1MEQzRDIzNkJiNzU5OTEyMjY5ODU4NDMifQ",
-    "payload": "eyJkb21haW4iOiJsb2NhbGFwcC5raWJhbGFicy54eXoifQ",
-    "signature": "KA7wjwOVG0a0vHh7kpCGjX7CgTLL2Dz80CDuE3iWOBo5EHe0uEbq1TpZPEG2LrcM7RjtvuaXbeTGafSObm8lcxw="
+    "payload": "eyJkb21haW4iOiJyYW5nZXNlZWtlci50b2tlbnBhZ2UueHl6In0",
+    "signature": "jLra4o4bu56OyrtCw7H+LkfY4/KVmf8g4/HUPZ2NozA3uGgNz8wKwQMYWdZrCwEoFeQ4ykcmO1VAEk5E89w2ehw="
   },
   "frame": {
     "version": "1",
     "name": "Range Seeker",
     "subtitle": "Agentic liquidity management",
-    "tagline": "Optimize your Uniswap V3 positions with AI",
-    "ogTitle": "Range Seeker - Uniswap V3 Optimizer",
-    "ogDescription": "AI agents that autonomously manage your Uniswap V3 liquidity positions.",
-    "description": "Create AI agents that autonomously manage your Uniswap V3 liquidity positions. Set your strategy in natural language and let your agent handle rebalancing, range optimization, and yield maximization on Base.",
+    "tagline": "Agentic liquidity management",
+    "ogTitle": "Agentic liquidity management",
+    "ogDescription": "AI agents that autonomously manage your liquidity positions.",
+    "description": "Set your strategy in natural language and let your agent handle rebalancing, range optimization, and yield maximization",
     "homeUrl": "https://rangeseeker.tokenpage.xyz",
     "iconUrl": "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/icon.png",
     "heroImageUrl": "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/image.png",
@@ -25,8 +25,7 @@
       "defi",
       "liquidity",
       "yield",
-      "agent",
-      "base"
+      "agent"
     ],
     "screenshotUrls": [
       "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/screenshot-1.png",
