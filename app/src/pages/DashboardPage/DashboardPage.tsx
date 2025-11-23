@@ -17,19 +17,6 @@ const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
 const BASE_CHAIN_ID = 8453;
 
-const ActivityItem = styled.div`
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
 const IconBox = styled.div`
   width: 40px;
   height: 40px;
