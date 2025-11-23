@@ -14,8 +14,8 @@ const GlassOverlay = styled.div`
   inset: 0;
   z-index: 1;
   background-color: rgba(10, 10, 10, 0.7);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(50px);
+  -webkit-backdrop-filter: blur(50px);
   pointer-events: none;
 `;
 
@@ -52,8 +52,8 @@ export function AnimatedBackground(): React.ReactElement {
 
   React.useEffect(() => {
     const size = 500;
-    const min = 1;
-    const max = 1.5;
+    const min = 0.5;
+    const max = 0.75;
 
     const colors = [
       'rgba(110, 211, 233, 0.4)',
