@@ -2,152 +2,215 @@
 
 Agentic Liquidity Provision
 
-**The Problem We Solve**
+## The Problem We Solve
+
 Uniswap liquidity provision is still too hard:
-- Users must manually pick ranges, monitor price/volatility, rebalance to avoid impermanent loss or going out-of-range (zero fees).
-- Existing solutions are either dumb vaults (static wide ranges = low fees) or pro tools that still require constant babysitting.
+- Users must manually pick ranges, monitor price/volatility, rebalance to avoid impermanent loss or going out-of-range (zero fees)
+- Existing solutions are either dumb vaults (static wide ranges = low fees) or pro tools that still require constant babysitting
 
-**Our Solution**
+## Our Solution
+
 A fully autonomous, natural-language-controlled liquidity agent that:
-- Runs 24/7 on a server (Coinbase CDP agent wallet)
-- Holds a user-owned sovereign vault (LiquidityVault.sol) that owns the Uniswap position NFT + funds
-- Rebalances, compounds fees, or emergency-exits based on user intent expressed in plain English
-- Uses on-chain Pyth for tamper-proof pricing in every action
-- Uses The Graph AMP for real-time volatility intelligence
-- Funds via Coinbase OnchainKit Swap widget (fiat → position in one click)
+- Runs 24/7 on a server using Coinbase CDP agent wallets
+- Holds user funds in a secure smart wallet
+- Rebalances automatically when positions drift out of range or approach range boundaries
+- Uses natural language to define strategies (e.g., "tight range but widen if volatility spikes")
+- Uses The Graph AMP for real-time pool data and volatility intelligence
+- Funds via simple wallet transfers with automatic rebalancing
 
-Hardcoded for MVP: WETH/USDC 0.05% fee tier on Base (most liquid pool => best demo).
+**Current Implementation:** WETH/USDC 0.05% fee tier on Base (most liquid pool)
 
-## Complete User Flow (Step-by-Step)
+## Complete User Flow
 
-### Step 1: Landing & Market Context
-User lands on the site → immediately sees:
-- Live Pyth price chart (lightweight-charts)
-- Current ETH price (Pyth)
-- 24h volume & fees earned by pool (AMP)
-- 24h implied volatility % calculated from every swap (The Graph AMP)
-- Big badge: “Real-time chain data powered by The Graph AMP”
+### Step 1: Connect Wallet & Create Agent
+1. User connects wallet (RainbowKit - supports MetaMask, Coinbase Wallet, WalletConnect, etc.)
+2. User creates an agent with:
+   - Name and emoji
+   - Natural language strategy description
 
-Action: Click “Connect Wallet” → RainbowKit modal (MetaMask, Rabby, Ledger, WalletConnect – anything works).
+Example strategy:
+> "I want tight range fee farming but widen if volatility spikes, and exit entirely to USDC if ETH ever drops below $3000"
 
-### Step 2: Describe Your Strategy
-Two options:
+### Step 2: Strategy Parsing
+- Backend sends strategy to LLM (Gemini) with real-time context:
+  - Current 24h volatility from The Graph AMP
+  - Pool statistics and historical price data
+- LLM returns structured JSON strategy config with:
+  - Base range percentage
+  - Dynamic widening triggers
+  - Price thresholds for actions
+- Frontend renders visual preview on live price chart
 
-**A – Presets** (Passive / Balanced / Aggressive / Capital Protector)
-**B – Natural Language** (the magic)
-User types:
-“I want tight range fee farming but widen if volatility spikes, and exit entirely to USDC if ETH ever drops below $3000”
+### Step 3: Agent Wallet Creation
+- Backend creates Coinbase CDP smart wallet for the agent
+- Smart wallet is non-custodial and fully controlled by backend
+- User gets agent wallet address for funding
 
-Frontend sends to backend → LLM (Grok API preferred, Claude fallback) with injected context:
-“Current 24h implied volatility from The Graph AMP is 4.1%. Convert this user request into JSON strategy config.”
+### Step 4: Fund the Agent
+User deposits funds to agent wallet:
+- Send USDC and/or WETH directly to agent address
+- Agent automatically:
+  - Detects deposit via balance polling
+  - Swaps to optimal 50/50 ratio using 0x API
+  - Opens Uniswap V3 position with calculated tick range
 
-Backend returns → UI renders beautiful preview card:
-- Visual range bands on the live chart
-- Summary: “Aggressive fee farming (±3.2% range), auto-widen on vol spike, stop-loss at $3000”
-- Edit or Confirm button
+### Step 5: Autonomous Operation
+Background worker runs every 15 minutes:
+1. Queries The Graph AMP for current pool state
+2. For each active agent:
+   - Gets current Uniswap positions via position manager contract
+   - Checks if price is outside range or within 10% of range edge
+   - If rebalance needed:
+     - Withdraws existing position
+     - Swaps to optimal ratio
+     - Opens new position centered on current price
+3. Activity is logged for dashboard display
 
-### Step 3: Deploy Vault & Agent
-User clicks “Deploy My Liquidity Agent” → two transactions (both cheap on Base):
+### Step 6: Dashboard Monitoring
+Users can view real-time agent status:
+- Live price chart with overlays:
+  - Current price (blue line)
+  - Strategy ranges (orange bands)
+  - Current position bounds (green lines)
+  - Price thresholds (red lines)
+- Asset balances (available tokens + LP position value)
+- Position details with token amounts
+- Manual rebalance button
+- Deposit more funds functionality
 
-1. `factory.createVault()` → deploys personal LiquidityVault.sol (owns funds + position NFT)
-2. Backend instantly creates Coinbase CDP agent wallet → UI calls `vault.setOperator(cdpAgentAddress)`
+## Tech Stack
 
-→ Total user signatures: 2
-→ Vault is now live, agent has permission to act
+### Frontend (`/app`)
+- **Framework:** React + TypeScript
+- **UI:** Kibalabs UI components + styled-components
+- **Web3:** ethers.js, RainbowKit
+- **Charts:** lightweight-charts for price visualization
+- **Build:** Vite
 
-### Step 4: Fund the Vault (Coinbase Swap Widget – Bounty Guaranteed)
-Screen shows vault address + QR + big beautiful funding section:
+### Backend (`/api`)
+- **Framework:** Python + FastAPI (via kiba-core)
+- **Database:** PostgreSQL with Alembic migrations
+- **Web3:** web3.py for blockchain interactions
+- **LLM:** Gemini API for strategy parsing
+- **Data:** The Graph AMP for pool data and volatility
+- **Swaps:** 0x API for token swaps
+- **Agent Wallets:** Coinbase CDP SDK (Node.js integration)
 
-**Option A** – Manual send (for whales)
-**Option B** – “Buy/Swap directly into position (recommended)” → renders official Coinbase OnchainKit <Swap> component:
-```tsx
-<Swap toAddress={vaultAddress} theme="coinbase" />
+### Worker (`/api/worker.py`)
+- **Scheduler:** APScheduler for interval-based checks
+- **Frequency:** Every 15 minutes
+- **Tasks:**
+  - Query all agents from database
+  - Check position health via The Graph and on-chain calls
+  - Trigger rebalances when needed
+
+### Smart Contracts
+- **Uniswap V3:** NonfungiblePositionManager for LP positions
+- **Tokens:** WETH and USDC on Base
+- **Pool:** 0.05% fee tier (500)
+
+## Implementation Details
+
+### Strategy Definition
+Natural language strategies are converted to structured rules:
+```typescript
+{
+  rules: [
+    {
+      type: "RANGE_WIDTH",
+      priority: 1,
+      parameters: {
+        baseRangePercent: 10,  // ±10% from current price
+        dynamicWidening: {
+          volatilityThreshold: 5.0,  // Widen if vol > 5%
+          widenToPercent: 20
+        }
+      }
+    },
+    {
+      type: "PRICE_THRESHOLD",
+      priority: 2,
+      parameters: {
+        priceUsd: 3000,
+        operator: "LESS_THAN",
+        action: "EXIT_TO_USDC"
+      }
+    }
+  ]
+}
 ```
-User can:
-- Buy USDC with card (fiat onramp)
-- Swap any token → balanced WETH/USDC
-- All funds land directly in vault
 
-Optional checkbox: “Auto-balance my deposit” → agent will swap to ~50/50 on activation
+### Volatility Calculation
+Uses The Graph AMP to query all swaps in the last 24 hours:
+```sql
+SELECT
+  timestamp,
+  POWER(CAST(event."sqrtPriceX96" AS DOUBLE) / 79228162514264337593543950336.0, 2) as price
+FROM "edgeandnode/uniswap_v3_base@0.0.1".event__swap
+WHERE pool_address = X'...'
+  AND timestamp > TIMESTAMP '...'
+```
+Calculates standard deviation of log returns and annualizes
 
-### Step 5: Activate Agent
-As soon as vault has > $50 TVL:
-- “Activate” button appears
-- User clicks → backend triggers CDP agent to call `vault.initializePosition(priceUpdateData)`
-  → First transaction includes on-chain Pyth update + mints initial position centered on current price ± user range
+### Position Management
+- **Opening:** Encode mint parameters, sign with CDP wallet, broadcast transaction
+- **Closing:** Call decreaseLiquidity(100%) then collect() to withdraw all tokens
+- **Rebalancing:** Close existing position → swap if needed → open new centered position
 
-Agent is now live and fully autonomous.
+### Tick Math
+- Convert price to tick: `tick = log(price) / log(1.0001)`
+- Convert tick to price: `price = 1.0001^tick`
+- Tick spacing: 10 (for 0.05% fee tier)
 
-### Step 6: Dashboard – Watch Your Agent Work
-User returns anytime to /dashboard/[vault]
+## Database Schema
 
-Live view:
-- Pyth WebSocket price feed chart
-- Green band = current active range
-- Faint orange historic bands = past positions
-- Activity feed (realtime via Supabase or Socket.io):
-  - “14:32 – Grok rebalanced to $3,620–$3,920 (price +2.8%, 24h vol spiked to 5.1% via The Graph AMP)”
-  - “15:07 – Compounded 0.12% fees”
-- Stats: Total fees earned, IL vs hold, performance vs passive vault
-- Big red “Emergency Stop Agent” button → `setOperator(address(0))`
-- “Withdraw Everything” button → `vault.withdraw()` → burns position, sends both tokens to user
+### Tables
+- `users` - User accounts with wallet addresses
+- `user_wallets` - User wallet addresses
+- `agents` - AI agents with strategies
+- `agent_wallets` - Coinbase CDP wallet addresses
+- `strategies` - Strategy definitions and rules
 
-User can close the tab – the agent keeps running on your server forever (or until revoked).
+## Running the Project
 
-## Implementation Details (Oriented Around the Flow)
+### Backend
+```bash
+cd api
+make install
+make run-local
+```
 
-### Step 1–2: Market Context + Strategy Parsing
-- Frontend: copy structure from yieldseeker-app
-- Current price & chart: Pyth WebSocket `wss://hermes.pyth.network/ws`
-- Volatility & volume: The Graph AMP SQL query (runs in backend, cached 30s)
-  ```sql
-  SELECT
-    (sqrt_price_x96::decimal / 2^96)^2 / 1e12 AS price
-  FROM "univ3@1.0.0".swap
-  WHERE pool = '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640'
-    AND block_timestamp > NOW() - INTERVAL '24 hours'
-  ORDER BY block_timestamp DESC
-  ```
-  → calculate std dev of log returns → volatility %
-- LLM parsing: backend endpoint → Grok API with volatility injected → returns strict JSON
+### Frontend
+```bash
+cd app
+npm install
+npm run dev
+```
 
-### Step 3: Vault Deployment + CDP Agent Creation
-- Hardhat repo with:
-  - LiquidityVault.sol (~220 LOC, onlyOperator modifier, rebalance/emergencyExit with Pyth pull)
-  - Factory.sol (CREATE2 for cheap deterministic addresses optional)
-  - Deploy script deploys factory once, users call createVault()
-- Backend (copy structure from yieldseeker-app)
-  ```ts
-  const agent = await coinbaseNode.wallets.create({ type: "agent" });
-  // store agent private key encrypted or .env for hackathon
-  ```
+### Worker
+```bash
+cd api
+python worker.py
+```
 
-### Step 4: Funding
-- OnchainKit <Swap> component – literally one line, sends directly to vault
-- Backend polls vault balances (viem publicClient) → shows "Ready to activate" when sufficient
+## Environment Variables
 
-### Step 5–6: Autonomous Execution Loop
-Backend worker (runs every 60s or Pyth WS triggered):
-1. Pyth WebSocket for current price
-2. For each active vault:
-   - Fetch current position ticks via NonfungiblePositionManager.positions(tokenId)
-   - Compare current Pyth price vs range ± buffer
-   - If trigger → fetch latest Pyth VAA from Hermes → CDP Node SDK sends:
-     ```ts
-     agent.sendTransaction({
-       to: vault,
-       data: encode(rebalance(newLower, newUpper, priceUpdateData)),
-       value: updateFee
-     })
-     ```
-   - Contract rebalance():
-     - pyth.updatePriceFeeds{value}(priceUpdateData)
-     - decrease 100%, collect fees
-     - swap to ~50/50 if needed
-     - mint new range
-     - emit event → backend logs for activity feed
+### Backend
+- `DATABASE_URL` - PostgreSQL connection string
+- `ETH_RPC_URL` - Base RPC endpoint
+- `AMP_API_KEY` - The Graph AMP API key
+- `COINBASE_CDP_API_KEY_NAME` - CDP API key
+- `COINBASE_CDP_API_KEY_PRIVATE_KEY` - CDP private key
+- `GEMINI_API_KEY` - Gemini LLM API key
 
-Database: postrgresql – stores vault → agent mapping + activity log
+### Frontend
+- `VITE_API_BASE_URL` - Backend API URL
 
+## Future Enhancements
 
-## Challenes along the way
+- Multi-pool support (different token pairs and fee tiers)
+- More sophisticated rebalancing triggers (MEV protection, gas optimization)
+- Profit/loss tracking and performance analytics
+- Social features (share strategies, leaderboards)
+- Mobile app for on-the-go monitoring
+- Gasless transactions via account abstraction
