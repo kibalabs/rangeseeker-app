@@ -1,0 +1,37 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjk5NDEzMywidHlwZSI6ImF1dGgiLCJrZXkiOiIweDY0YzVlNUUwMTEyMDkyOTI1MEQzRDIzNkJiNzU5OTEyMjY5ODU4NDMifQ",
+    "payload": "eyJkb21haW4iOiJsb2NhbGFwcC5raWJhbGFicy54eXoifQ",
+    "signature": "KA7wjwOVG0a0vHh7kpCGjX7CgTLL2Dz80CDuE3iWOBo5EHe0uEbq1TpZPEG2LrcM7RjtvuaXbeTGafSObm8lcxw="
+  },
+  "frame": {
+    "version": "1",
+    "name": "Range Seeker",
+    "subtitle": "Agentic liquidity management",
+    "tagline": "Optimize your Uniswap V3 positions with AI",
+    "ogTitle": "Range Seeker - Uniswap V3 Optimizer",
+    "ogDescription": "AI agents that autonomously manage your Uniswap V3 liquidity positions.",
+    "description": "Create AI agents that autonomously manage your Uniswap V3 liquidity positions. Set your strategy in natural language and let your agent handle rebalancing, range optimization, and yield maximization on Base.",
+    "homeUrl": "https://rangeseeker.tokenpage.xyz",
+    "iconUrl": "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/icon.png",
+    "heroImageUrl": "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/image.png",
+    "ogImageUrl": "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/image.png",
+    "buttonTitle": "Launch",
+    "splashImageUrl": "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/splash.png",
+    "splashBackgroundColor": "#000000",
+    "primaryCategory": "finance",
+    "tags": [
+      "uniswap",
+      "defi",
+      "liquidity",
+      "yield",
+      "agent",
+      "base"
+    ],
+    "screenshotUrls": [
+      "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/screenshot-1.png",
+      "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/screenshot-2.png",
+      "https://rangeseeker.tokenpage.xyz/assets/farcaster-frame/screenshot-3.png"
+    ]
+  }
+}
