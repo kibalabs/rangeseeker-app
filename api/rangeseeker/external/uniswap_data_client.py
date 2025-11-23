@@ -49,6 +49,15 @@ class Pool(BaseModel):
     tick: int
 
 
+class WalletPosition(BaseModel):
+    tokenId: int
+    poolAddress: str
+    token0: str
+    token1: str
+    amount0: int
+    amount1: int
+
+
 class UniswapDataClient:
     def __init__(self, ampClient: AmpClient) -> None:
         self.ampClient = ampClient
@@ -350,3 +359,48 @@ class UniswapDataClient:
         annualizationFactor = math.sqrt(swapsPerHour * 24 * 365)
         annualizedVol = stdDev * annualizationFactor
         return annualizedVol
+
+    async def get_wallet_positions(self, walletAddress: str) -> list[WalletPosition]:
+        """Get all active Uniswap V3 positions for a wallet with token balances."""
+        walletAddressNormalized = chain_util.normalize_address(walletAddress)
+
+        # Step 1: Get owned position token IDs
+        sql_positions = f"""
+        SELECT DISTINCT event."tokenId" as token_id
+        FROM "{self.ampDatasetName}".event__position_manager_transfer
+        WHERE event."to" = {walletAddressNormalized}
+        LIMIT 100
+        """
+
+        token_ids = [int(cast(int, row.get('token_id', 0))) async for row in self.ampClient.execute_sql(sql_positions)]
+
+        if not token_ids:
+            return []
+
+        # Step 2: For each token ID, get latest amounts
+        positions = []
+        for token_id in token_ids:
+            sql_amounts = f"""
+            SELECT
+                event."amount0" as amount0,
+                event."amount1" as amount1
+            FROM "{self.ampDatasetName}".event__position_manager_increase_liquidity
+            WHERE event."tokenId" = {token_id}
+            ORDER BY block_num DESC
+            LIMIT 1
+            """
+
+            async for row in self.ampClient.execute_sql(sql_amounts):
+                positions.append(
+                    WalletPosition(
+                        tokenId=token_id,
+                        poolAddress='',  # Will fetch on-chain
+                        token0='',  # Will fetch on-chain
+                        token1='',  # Will fetch on-chain
+                        amount0=int(cast(int, row.get('amount0', 0))),
+                        amount1=int(cast(int, row.get('amount1', 0))),
+                    )
+                )
+                break
+
+        return positions

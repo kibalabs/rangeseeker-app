@@ -36,6 +36,7 @@ from rangeseeker.model import AssetBalance
 from rangeseeker.model import AssetPrice
 from rangeseeker.model import PreviewDeposit
 from rangeseeker.model import Strategy
+from rangeseeker.model import UniswapPosition
 from rangeseeker.model import User
 from rangeseeker.model import UserWallet
 from rangeseeker.model import Wallet
@@ -134,10 +135,14 @@ class AppManager(Authorizer):
 
     async def get_agent_wallet(self, userId: str, agentId: str) -> Wallet:
         agentWallet = await self.userManager.get_agent_wallet(userId=userId, agentId=agentId)
-        assetBalances = await self.get_wallet_balances(chainId=8453, walletAddress=agentWallet.walletAddress)
+        assetBalances, uniswapPositions = await asyncio.gather(
+            self.get_wallet_balances(chainId=8453, walletAddress=agentWallet.walletAddress),
+            self.get_wallet_uniswap_positions(walletAddress=agentWallet.walletAddress),
+        )
         return Wallet(
             walletAddress=agentWallet.walletAddress,
             assetBalances=assetBalances,
+            uniswapPositions=uniswapPositions,
             delegatedSmartWallet=agentWallet.delegatedSmartWallet,
         )
 
@@ -174,6 +179,58 @@ class AppManager(Authorizer):
             )
             assetBalances.append(AssetBalance(asset=asset, assetPrice=assetPrice, balance=clientBalance.balance))
         return assetBalances
+
+    async def get_wallet_uniswap_positions(self, walletAddress: str) -> list[UniswapPosition]:
+        positions = await self.strategyManager.uniswapClient.get_wallet_positions(walletAddress=walletAddress)
+        prices = await self.pythClient.get_prices(priceIds=[PYTH_ETH_USD_PRICE_ID, PYTH_USDC_USD_PRICE_ID])
+        ethPriceUsd = prices.get(PYTH_ETH_USD_PRICE_ID, 0.0)
+        usdcPriceUsd = prices.get(PYTH_USDC_USD_PRICE_ID, 0.0)
+
+        uniswapPositions = []
+        for position in positions:
+            # For now, hardcode WETH/USDC since that's what we're using
+            # TODO(krishan): Fetch token details from on-chain or TheGraph
+            token0 = Asset(
+                assetId=constants.CHAIN_WETH_MAP[constants.BASE_CHAIN_ID],
+                createdDate=datetime.datetime.now(tz=datetime.UTC),
+                updatedDate=datetime.datetime.now(tz=datetime.UTC),
+                chainId=constants.BASE_CHAIN_ID,
+                address=constants.CHAIN_WETH_MAP[constants.BASE_CHAIN_ID],
+                name='Wrapped Ether',
+                symbol='WETH',
+                decimals=18,
+            )
+            token1 = Asset(
+                assetId=constants.CHAIN_USDC_MAP[constants.BASE_CHAIN_ID],
+                createdDate=datetime.datetime.now(tz=datetime.UTC),
+                updatedDate=datetime.datetime.now(tz=datetime.UTC),
+                chainId=constants.BASE_CHAIN_ID,
+                address=constants.CHAIN_USDC_MAP[constants.BASE_CHAIN_ID],
+                name='USD Coin',
+                symbol='USDC',
+                decimals=6,
+            )
+
+            # Calculate USD values
+            token0ValueUsd = (position.amount0 / 10**18) * ethPriceUsd
+            token1ValueUsd = (position.amount1 / 10**6) * usdcPriceUsd
+            totalValueUsd = token0ValueUsd + token1ValueUsd
+
+            uniswapPositions.append(
+                UniswapPosition(
+                    tokenId=position.tokenId,
+                    poolAddress=position.poolAddress or '',
+                    token0=token0,
+                    token1=token1,
+                    token0Amount=position.amount0,
+                    token1Amount=position.amount1,
+                    token0ValueUsd=token0ValueUsd,
+                    token1ValueUsd=token1ValueUsd,
+                    totalValueUsd=totalValueUsd,
+                )
+            )
+
+        return uniswapPositions
 
     async def parse_strategy(self, description: str) -> StrategyDefinition:
         return await self.strategyManager.parse_strategy(description=description)
