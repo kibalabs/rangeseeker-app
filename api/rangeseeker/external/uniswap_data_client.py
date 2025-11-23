@@ -372,9 +372,7 @@ class UniswapDataClient:
         LIMIT 100
         """
 
-        token_ids = []
-        async for row in self.ampClient.execute_sql(sql_positions):
-            token_ids.append(int(cast(int, row.get('token_id', 0))))
+        token_ids = [int(cast(int, row.get('token_id', 0))) async for row in self.ampClient.execute_sql(sql_positions)]
 
         if not token_ids:
             return []

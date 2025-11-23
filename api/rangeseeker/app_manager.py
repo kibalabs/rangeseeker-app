@@ -189,7 +189,7 @@ class AppManager(Authorizer):
         uniswapPositions = []
         for position in positions:
             # For now, hardcode WETH/USDC since that's what we're using
-            # TODO: Fetch token details from on-chain or TheGraph
+            # TODO(krishan): Fetch token details from on-chain or TheGraph
             token0 = Asset(
                 assetId=constants.CHAIN_WETH_MAP[constants.BASE_CHAIN_ID],
                 createdDate=datetime.datetime.now(tz=datetime.UTC),
