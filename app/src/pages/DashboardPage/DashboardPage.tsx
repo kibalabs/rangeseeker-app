@@ -578,17 +578,6 @@ export function DashboardPage(): React.ReactElement {
         <Box width='100%' height='300px'>
           <PriceChart />
         </Box>
-        <Spacing variant={PaddingSize.Default} />
-        <Text variant='header4'>Recent Activity</Text>
-        <Stack direction={Direction.Vertical} isFullWidth={true}>
-          <ActivityItem>
-            <Stack direction={Direction.Vertical}>
-              <Text variant='bold'>Agent Deployed</Text>
-              <Text variant='note'>Waiting for funds...</Text>
-            </Stack>
-            <Text variant='note'>Just now</Text>
-          </ActivityItem>
-        </Stack>
       </Stack>
     </Stack>
   );

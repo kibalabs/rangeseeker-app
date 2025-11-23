@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 import jwt
 import rlp  # type: ignore[import-untyped]
+from core import logging
 from core.exceptions import KibaException
 from core.http.rest_method import RestMethod
 from core.requester import Requester
@@ -16,6 +17,7 @@ from core.util import chain_util
 from core.util.typing_util import Json
 from core.util.typing_util import JsonObject
 from cryptography.hazmat.primitives import asymmetric
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
 from eth_utils import encode_hex
@@ -26,6 +28,21 @@ from web3.types import TxParams
 from rangeseeker import constants
 
 BASE_CHAIN_ID = 8453
+
+IMPORT_ACCOUNT_PUBLIC_RSA_KEY = """-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA2Fxydgm/ryYk0IexQIuL
+9DKyiIk2WmS36AZ83a9Z0QX53qdveg08b05g1Qr+o+COoYOT/FDi8anRGAs7rIyS
+uigrjHR6VrmFjnGrrTr3MINwC9cYQFHwET8YVGRq+BB3iFTB1kIb9XJ/vT2sk1xP
+hJ6JihEwSl4DgbeVjqw59wYqrNg355oa8EdFqkmfGU2tpbM56F8iv1F+shwkGo3y
+GhW/UOQ5OLauXvsqo8ranwsK+lqFblLEMlNtn1VSJeO2vMxryeKFrY2ob8VqGchC
+ftPJiLWs2Du6juw4C1rOWwSMlXzZ6cNMHkxdTcEHMr3C2TEHgzjZY41whMwNTB8q
+/pxXnIbH77caaviRs4R/POe8cSsznalXj85LULvFWOIHp0w+jEYSii9Rp9XtHWAH
+nrK/O/SVDtT1ohp2F+Zg1mojTgKfLOyGdOUXTi95naDTuG770rSjHdL80tJBz1Fd
++1pzGTGXGHLZQLX5YZm5iuy2cebWfF09VjIoCIlDB2++tr4M+O0Z1X1ZE0J5Ackq
+rOluAFalaKynyH3KMyRg+NuLmibu5OmcMjCLK3D4X1YLiN2OK8/bbpEL8JYroDwb
+EXIUW5mGS06YxfSUsxHzL9Tj00+GMm/Gvl0+4/+Vn8IXVHjQOSPNEy3EnqCiH/OW
+8v0IMC32CeGrX7mGbU+MzlsCAwEAAQ==
+-----END PUBLIC KEY-----"""
 
 
 class ClientAssetBalance(BaseModel):
@@ -157,6 +174,32 @@ class CoinbaseCdpClient:
         responseDict = response.json()
         address: str = str(responseDict['address'])
         return address
+
+    async def export_eoa(self, walletAddress: str) -> str:
+        rsaPrivateKey = asymmetric.rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        rsaPublicKey = rsaPrivateKey.public_key()
+        publicKeyDer = rsaPublicKey.public_bytes(encoding=serialization.Encoding.DER, format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        exportEncryptionKey = base64.b64encode(publicKeyDer).decode('utf-8')
+        method = RestMethod.POST
+        url = f'https://api.cdp.coinbase.com/platform/v2/evm/accounts/{walletAddress}/export'
+        dataDict = {
+            'exportEncryptionKey': exportEncryptionKey,
+        }
+        headers = self._build_wallet_api_headers(url=url, method=method, body=dataDict)
+        response = await self.requester.make_request(method=method, url=url, dataDict=dataDict, headers=headers)
+        responseDict = response.json()
+        encryptedPrivateKeyBytes = base64.b64decode(responseDict['encryptedPrivateKey'])
+        decryptedPrivateKeyBytes = rsaPrivateKey.decrypt(
+            ciphertext=encryptedPrivateKeyBytes,
+            padding=asymmetric.padding.OAEP(
+                mgf=asymmetric.padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None,
+            ),
+        )
+        privateKeyHex = '0x' + decryptedPrivateKeyBytes.hex()
+        logging.info(f'private key: {privateKeyHex}')
+        return privateKeyHex
 
     async def get_wallet_asset_balances(self, chainId: int, walletAddress: str) -> list[ClientAssetBalance]:
         if chainId == constants.BASE_CHAIN_ID:
