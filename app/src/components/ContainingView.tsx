@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { sdk } from '@farcaster/miniapp-sdk';
 import { ISingleAnyChildProps, useLocation, useNavigator, usePreviousValue } from '@kibalabs/core-react';
 import { Alignment, Box, Button, Direction, getVariant, HidingView, IconButton, Image, KibaIcon, LinkBase, PaddingSize, ResponsiveHidingView, ScreenSize, Stack, Text } from '@kibalabs/ui-react';
 import { useWeb3Account } from '@kibalabs/web3-react';
@@ -50,11 +51,27 @@ export function ContainingView(props: IContainingViewProps): React.ReactElement 
   const previousAccount = usePreviousValue(account);
   const { isWeb3AccountConnecting, isWeb3AccountLoggedIn, isAuthenticated, loginWithWallet } = useAuth();
   const { localStorageClient } = useGlobals();
+  const [isFarcasterSdkLoaded, setIsFarcasterSdkLoaded] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [isMenuOpen, setIsMenuOpen] = React.useState<boolean>(false);
   const [loginError, setLoginError] = React.useState<string | null>(null);
   const [needsRegistration, setNeedsRegistration] = React.useState<boolean>(false);
   const [isRestoringDestination, setIsRestoringDestination] = React.useState<boolean>(false);
+
+  React.useEffect((): void => {
+    const loadFarcasterSdk = async (): Promise<void> => {
+      try {
+        await sdk.actions.ready();
+      } catch (error) {
+        console.error('Failed to initialize Farcaster SDK:', error);
+      }
+    };
+
+    if (sdk != null && !isFarcasterSdkLoaded) {
+      setIsFarcasterSdkLoaded(true);
+      loadFarcasterSdk();
+    }
+  }, [isFarcasterSdkLoaded]);
 
   React.useEffect((): void => {
     if (previousAccount != null && account?.address !== previousAccount?.address) {

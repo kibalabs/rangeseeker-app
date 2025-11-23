@@ -2,9 +2,11 @@ import React from 'react';
 
 import { LocalStorageClient, Requester } from '@kibalabs/core';
 import { IRoute, MockStorage, Router, SubRouter } from '@kibalabs/core-react';
-import { KibaApp } from '@kibalabs/ui-react';
+import { ComponentDefinition, KibaApp } from '@kibalabs/ui-react';
+import { buildToastThemes, Toast, ToastContainer, ToastThemedStyle, useToastManager } from '@kibalabs/ui-react-toast';
 import { Web3AccountControlProvider } from '@kibalabs/web3-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 import { AuthProvider } from './AuthContext';
 import { RangeSeekerClient } from './client/client';
@@ -35,7 +37,22 @@ const localStorageClient = new LocalStorageClient(typeof window !== 'undefined' 
 const sessionStorageClient = new LocalStorageClient(typeof window !== 'undefined' ? window.sessionStorage : new MockStorage());
 const theme = buildRangeSeekerTheme();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      retry: (failureCount: number, error: Error): boolean => {
+        if (error instanceof Error && (error.message.includes('401') || error.message.includes('403'))) {
+          return false;
+        }
+        return failureCount < 3;
+      },
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: false,
+    },
+  },
+});
 
 const globals: IGlobals = {
   requester,
@@ -54,13 +71,22 @@ const routes: IRoute<IGlobals>[] = [
   { path: '/', page: HomePage },
 ];
 
+// @ts-expect-error
+const extraComponentDefinitions: ComponentDefinition[] = [{
+  component: Toast,
+  themeMap: buildToastThemes(theme.colors, theme.dimensions, theme.boxes, theme.texts, theme.icons),
+  themeCssFunction: ToastThemedStyle,
+}];
+
 export function App(): React.ReactElement {
+  const toastManager = useToastManager();
+
   const onWeb3AccountError = React.useCallback((error: Error): void => {
-    console.error('Web3 Account Error:', error);
-  }, []);
+    toastManager.showTextToast(error.message, 'error');
+  }, [toastManager]);
 
   return (
-    <KibaApp theme={theme}>
+    <KibaApp theme={theme} isFullPageApp={true} extraComponentDefinitions={extraComponentDefinitions}>
       <AnimatedBackground />
       <GlobalsProvider globals={globals}>
         <QueryClientProvider client={queryClient}>
@@ -73,8 +99,10 @@ export function App(): React.ReactElement {
                   </ContainingView>
                 </StrategyCreationProvider>
               </AuthProvider>
+              <ToastContainer />
             </Web3AccountControlProvider>
           </Router>
+          <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
       </GlobalsProvider>
     </KibaApp>
